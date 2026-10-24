@@ -11,7 +11,7 @@ PWA pessoal da Jéssica para o saldo dos cartões de vale (VR/VA/multibenefício
 | Conferir se os 4 lugares da versão batem | `node scripts/versao.mjs --check` |
 | Ver no navegador (só no PC) | `python -m http.server 8765` nesta pasta, ou o preview "ciclo" |
 
-Arquivo novo em `js/` também entra na lista `FILES` do `sw.js`, senão o app quebra offline.
+Arquivo novo em `js/` ou em `js/app/` também entra na lista `FILES` do `sw.js`, senão o app quebra offline (`tests/modulos.test.js` confere).
 
 ## Regras do Ciclo
 

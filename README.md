@@ -79,7 +79,12 @@ index.html            página do app
 styles.css            visual (identidade Ciclo, temas claro e escuro)
 manifest.webmanifest  nome, ícones e cores do app instalado
 sw.js                 service worker: guarda o app para uso offline
-js/app.js             telas, cartões, períodos, cofre, backup
+js/app.js             entrada do app: versão, eventos gerais e inicialização (módulo ES; o código fica em js/app/)
+js/app/               o resto do app, um módulo ES por assunto (sem etapa de montagem):
+                        base (só importam outra base): util, estado, cripto, periodos, armazenamento
+                        telas e ações: telas, folhas, inicio, cartoes, cofre, cupom, conferencia, pagamento,
+                        backup, atualizacao, gemini-ui
+js/recorte.js         recorte automático da foto do cupom (acha o papel e endireita; sem tela, com testes)
 js/receipt.js         leitura do cupom no celular (OCR) e interpretação do texto
 js/gemini.js          leitura de cupons e cartões pelo Gemini (opcional)
 js/drive.js           backup no Google Drive (opcional): montagem do backup, regras de quando salvar e chamada ao script
@@ -96,13 +101,15 @@ CHANGELOG.md          histórico de versões
 version.json          versão publicada (usada pelo aviso de atualização)
 ```
 
+Regras de `js/app/`: o estado do app é um objeto só (`S`, em `estado.js`); os módulos de base nunca importam telas (um teste confere); só `export` nomeado; nenhum módulo importa `js/app.js`. Os outros scripts de `js/` continuam clássicos (`<script defer>`) e aparecem para os módulos como variáveis globais (`Match`, `Credito`...).
+
 ## Versões
 
 O projeto segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`). As mudanças de cada versão estão no [CHANGELOG](CHANGELOG.md), e a versão em uso aparece no rodapé de **Ajustes**.
 
 Para publicar uma versão nova:
 
-1. Atualize `APP_VERSION` em `js/app.js`, `VERSION` em `sw.js` e o número em `version.json`. Arquivo novo em `js/` também entra na lista `FILES` do `sw.js`.
+1. Atualize `APP_VERSION` em `js/app.js`, `VERSION` em `sw.js` e o número em `version.json`. Arquivo novo em `js/` ou em `js/app/` também entra na lista `FILES` do `sw.js`.
 2. Escreva a entrada nova no `CHANGELOG.md`.
 3. Rode os testes (`node --test`, veja abaixo). Todos precisam passar.
 4. Faça o commit e envie com a tag da versão:

@@ -409,6 +409,15 @@ body.hide-values :is(.big, .bal, .rbal, .tx .a, .stat .v, .person .v, .gmeta, .h
 @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 .hint { font-size: 12.5px; color: var(--muted); }
 .receipt-img { width: 100%; max-height: 240px; object-fit: contain; background: var(--sunk); border-radius: var(--r); }
+.crop { position: relative; width: calc(100% - 28px); margin: 14px auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+.crop img { display: block; width: 100%; height: auto; border-radius: 6px; background: var(--sunk); pointer-events: none; }
+.crop svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.crop polygon { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linejoin: round; filter: drop-shadow(0 0 1px rgba(0, 0, 0, .7)); }
+.crop-h { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; background: transparent; touch-action: none; cursor: grab; }
+.crop-h::after { content: ""; position: absolute; left: 12px; top: 12px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .55); transition: transform .12s; }
+.crop-h.on::after { transform: scale(1.25); }
+.recorte-usado { flex-direction: row; align-items: center; gap: 12px; }
+.recorte-usado img { width: 64px; max-height: 84px; object-fit: cover; object-position: top; border-radius: 6px; background: var(--sunk); flex: none; }
 .receipt-full { width: 100%; height: auto; border-radius: var(--r); background: var(--sunk); }
 .found { background: var(--sunk); border-radius: var(--r); padding: 12px 14px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
 .found b { font-weight: 700; }

@@ -10,6 +10,14 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
+## 1.12.0 — 24/10/2026
+
+### Novo
+- **Recorte automático da foto do cupom:** o app pode achar o papel do cupom na foto e recortar só ele antes da leitura pelo leitor do celular. Fica em Ajustes e vem desligado. Com a opção ligada, o app recorta sozinho e mostra uma miniatura do recorte depois da leitura, com o botão "Ler de novo sem recorte". Com a opção desligada, antes de ler o app mostra o contorno para você conferir e arrastar os 4 cantos, se quiser.
+
+### Mudou
+- **Código interno organizado em módulos:** o código do app foi dividido em vários arquivos menores. Para quem usa, nada muda: as telas, os dados e os backups são os mesmos. Como os arquivos são novos, o celular baixa tudo de novo na próxima abertura depois da atualização.
+
 ## 1.11.0 — 23/10/2026
 
 ### Novo

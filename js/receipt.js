@@ -23,29 +23,49 @@
     return workerPromise;
   }
 
-  // Cupom térmico: tons de cinza, contraste esticado e binarização (Otsu).
-  async function prepare(blob) {
-    const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" });
-    // Resolução bastante para o texto do cupom, sem pesar: uma foto de celular (12 MP ou mais) vira no
-    // máximo ~3,5 MP. Acima disso o OCR fica bem mais lento sem ler melhor.
-    let scale = 1;
-    if (bmp.width < 1100) scale = 1100 / bmp.width;
-    scale = Math.min(scale, 2400 / Math.max(bmp.width, bmp.height), Math.sqrt(3.5e6 / (bmp.width * bmp.height)));
+  const agora = () => (window.performance || Date).now();
+  const seg = ms => (ms / 1000).toFixed(1).replace(".", ",") + " s";
+  const abrirFoto = blob => createImageBitmap(blob, { imageOrientation: "from-image" });
+
+  // Desenha a foto em w×h e devolve só os tons de cinza.
+  function cinzaDe(bmp, w, h) {
     const cv = document.createElement("canvas");
-    cv.width = Math.round(bmp.width * scale);
-    cv.height = Math.round(bmp.height * scale);
+    cv.width = w; cv.height = h;
     const ctx = cv.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(bmp, 0, 0, cv.width, cv.height);
-    const img = ctx.getImageData(0, 0, cv.width, cv.height);
-    const px = img.data;
-    const gray = new Uint8Array(cv.width * cv.height);
-    const hist = new Array(256).fill(0);
-    for (let i = 0, j = 0; i < px.length; i += 4, j++) {
-      const g = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0;
-      gray[j] = g; hist[g]++;
-    }
+    ctx.drawImage(bmp, 0, 0, w, h);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    const g = new Uint8Array(w * h);
+    for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0;
+    return g;
+  }
+
+  // Procura o papel na foto (reduzida a ~320 px). Devolve { cantos, larg, alt, ms } com os cantos em pixels
+  // da foto original (topo-esq, topo-dir, base-dir, base-esq) ou cantos = null. Nunca lança erro.
+  async function detectarBmp(bmp) {
+    const ms = { reduzir: 0, achar: 0, endireitar: 0 };
+    let cantos = null;
+    try {
+      let t = agora();
+      const s = Math.min(1, 320 / Math.max(bmp.width, bmp.height));
+      const w = Math.max(8, Math.round(bmp.width * s)), h = Math.max(8, Math.round(bmp.height * s));
+      const g = cinzaDe(bmp, w, h);
+      ms.reduzir = agora() - t; t = agora();
+      const c = Recorte.acharCantos(g, w, h);
+      ms.achar = agora() - t;
+      if (c) cantos = c.map(p => ({ x: p.x * bmp.width / w, y: p.y * bmp.height / h }));
+    } catch (e) { console.warn("recorte", e); }
+    return { cantos, larg: bmp.width, alt: bmp.height, ms };
+  }
+  async function detectar(blob) {
+    const bmp = await abrirFoto(blob);
+    try { return await detectarBmp(bmp); } finally { bmp.close && bmp.close(); }
+  }
+
+  // Tons de cinza -> contraste esticado -> binarização (Otsu) -> canvas, que é o que o Tesseract lê.
+  function binarizar(gray, w, h) {
+    const hist = new Array(256).fill(0), total = gray.length;
+    for (let j = 0; j < total; j++) hist[gray[j]]++;
     // contraste: corta 1% de cada ponta
-    const total = gray.length;
     let lo = 0, hi = 255, acc = 0;
     while (lo < 255 && (acc += hist[lo]) < total * 0.01) lo++;
     acc = 0;
@@ -56,33 +76,102 @@
       const v = Math.max(0, Math.min(255, ((gray[j] - lo) * 255 / range) | 0));
       gray[j] = v; h2[v]++;
     }
-    // limiar de Otsu
-    let sum = 0; for (let t = 0; t < 256; t++) sum += t * h2[t];
-    let sumB = 0, wB = 0, best = 0, thr = 128;
-    for (let t = 0; t < 256; t++) {
-      wB += h2[t]; if (!wB) continue;
-      const wF = total - wB; if (!wF) break;
-      sumB += t * h2[t];
-      const mB = sumB / wB, mF = (sum - sumB) / wF;
-      const between = wB * wF * (mB - mF) * (mB - mF);
-      if (between > best) { best = between; thr = t; }
-    }
-    for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+    const thr = Recorte.otsu(h2, total);
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    const img = ctx.createImageData(w, h), px = img.data;
+    for (let i = 0, j = 0; j < total; i += 4, j++) {
       const v = gray[j] > thr ? 255 : 0;
-      px[i] = px[i + 1] = px[i + 2] = v;
+      px[i] = px[i + 1] = px[i + 2] = v; px[i + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
+    return cv;
+  }
+
+  // Miniatura (data URL) do recorte, para mostrar depois da leitura.
+  function miniatura(gray, w, h) {
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext("2d");
+    const img = ctx.createImageData(w, h);
+    for (let i = 0, j = 0; j < gray.length; i += 4, j++) { img.data[i] = img.data[i + 1] = img.data[i + 2] = gray[j]; img.data[i + 3] = 255; }
+    ctx.putImageData(img, 0, 0);
+    const mw = Math.min(160, w), mh = Math.max(1, Math.round(h * mw / w));
+    const mini = document.createElement("canvas");
+    mini.width = mw; mini.height = mh;
+    mini.getContext("2d").drawImage(cv, 0, 0, mw, mh);
+    return mini.toDataURL("image/jpeg", 0.6);
+  }
+
+  // Recorta e endireita o papel em tons de cinza. Devolve { dados, larg, alt } ou null.
+  async function recortar(bmp, opts, info) {
+    let cantos = opts.cantos ? Recorte.validar(opts.cantos, bmp.width, bmp.height) : null;
+    if (!cantos) {
+      const det = await detectarBmp(bmp);
+      info.ms.reduzir += det.ms.reduzir; info.ms.achar += det.ms.achar;
+      cantos = det.cantos && Recorte.validar(det.cantos, bmp.width, bmp.height);
+      if (!cantos) { info.motivo = "não achei o papel"; return null; }
+    }
+    const t = agora();
+    // foto de trabalho: até ~6 MP, para o recorte ainda ter detalhe de sobra
+    const s = Math.min(1, 2400 / Math.max(bmp.width, bmp.height), Math.sqrt(6e6 / (bmp.width * bmp.height)));
+    const w = Math.max(8, Math.round(bmp.width * s)), h = Math.max(8, Math.round(bmp.height * s));
+    const g = cinzaDe(bmp, w, h);
+    const c = cantos.map(p => ({ x: p.x * w / bmp.width, y: p.y * h / bmp.height }));
+    const m = Recorte.medidas(c);
+    const out = Recorte.endireitar(g, w, h, c, Math.max(1100, Math.min(1600, m.larg)));
+    info.ms.endireitar = agora() - t;
+    if (!out) { info.motivo = "não consegui endireitar"; return null; }
+    info.cantos = cantos;
+    info.miniatura = miniatura(out.dados, out.larg, out.alt);
+    return out;
+  }
+
+  // Foto -> canvas pronto para o OCR. Com opts.cantos (ou opts.recortar) lê só o papel; se o recorte falhar,
+  // lê a foto inteira. `info` recebe o que aconteceu (tempos, motivo, miniatura) para "Como foi lido".
+  async function prepare(blob, opts, info) {
+    opts = opts || {}; info = info || {};
+    info.ms = info.ms || { reduzir: 0, achar: 0, endireitar: 0 };
+    const bmp = await abrirFoto(blob);
+    let rec = null;
+    if (opts.cantos || opts.recortar) {
+      try { rec = await recortar(bmp, opts, info); }
+      catch (e) { console.warn("recorte", e); info.motivo = "deu erro no recorte"; }
+    } else info.motivo = info.motivo || "desligado";
+    if (rec) {
+      const cv = binarizar(rec.dados, rec.larg, rec.alt);
+      bmp.close && bmp.close();
+      return cv;
+    }
+    // Resolução bastante para o texto do cupom, sem pesar: uma foto de celular (12 MP ou mais) vira no
+    // máximo ~3,5 MP. Acima disso o OCR fica bem mais lento sem ler melhor.
+    let scale = 1;
+    if (bmp.width < 1100) scale = 1100 / bmp.width;
+    scale = Math.min(scale, 2400 / Math.max(bmp.width, bmp.height), Math.sqrt(3.5e6 / (bmp.width * bmp.height)));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const cv = binarizar(cinzaDe(bmp, w, h), w, h);
+    bmp.close && bmp.close();
     return cv;
   }
 
   // Carrega o leitor antes de a foto chegar (por exemplo, enquanto a câmera está aberta).
   const warm = () => { getWorker().catch(() => {}); };
 
-  async function readText(blob, onProgress) {
+  // opts.cantos: 4 cantos já ajustados, em pixels da foto original · opts.recortar: detecta sozinho ·
+  // opts.info: objeto que recebe { ms, motivo, cantos, miniatura, texto } (texto = linha de "Como foi lido").
+  async function readText(blob, onProgress, opts) {
+    opts = opts || {};
+    const info = opts.info || {};
+    info.ms = Object.assign({ reduzir: 0, achar: 0, endireitar: 0 }, info.ms);
     progressCb = onProgress || null;
     try {
       onProgress && onProgress("preparando a foto", 0);
-      const canvas = await prepare(blob);
+      const canvas = await prepare(blob, opts, info);
+      const soma = info.ms.reduzir + info.ms.achar + info.ms.endireitar;
+      info.texto = info.cantos
+        ? `Recorte: ${seg(soma)} (reduzir ${seg(info.ms.reduzir)}, achar ${seg(info.ms.achar)}, endireitar ${seg(info.ms.endireitar)}).`
+        : `Sem recorte (${info.motivo || "foto inteira"}).`;
       const worker = await getWorker();
       const { data } = await worker.recognize(canvas);
       return data.text || "";
@@ -290,5 +379,5 @@
     return res;
   }
 
-  window.ReceiptReader = { warm, readText, parse, parseCard, prepare };
+  window.ReceiptReader = { warm, readText, detectar, parse, parseCard, prepare };
 })();

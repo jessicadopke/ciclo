@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, mude VERSION para o celular baixar os arquivos atualizados.
-const VERSION = "ciclo-1.11.0";
+const VERSION = "ciclo-1.12.0";
 importScripts("js/credito.js");
 
 const FILES = [
@@ -10,8 +10,25 @@ const FILES = [
   "fonts/outfit-latin.woff2",
   "manifest.webmanifest",
   "js/app.js",
+  "js/app/util.js",
+  "js/app/estado.js",
+  "js/app/cripto.js",
+  "js/app/periodos.js",
+  "js/app/armazenamento.js",
+  "js/app/gemini-ui.js",
+  "js/app/atualizacao.js",
+  "js/app/pagamento.js",
+  "js/app/folhas.js",
+  "js/app/cofre.js",
+  "js/app/cartoes.js",
+  "js/app/cupom.js",
+  "js/app/conferencia.js",
+  "js/app/backup.js",
+  "js/app/inicio.js",
+  "js/app/telas.js",
   "js/issuers.js",
   "js/match.js",
+  "js/recorte.js",
   "js/receipt.js",
   "js/gemini.js",
   "js/drive.js",

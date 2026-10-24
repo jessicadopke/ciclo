@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Medir recorte do cupom (uso local)</title>
+<style>body{font:14px system-ui;margin:16px}table{border-collapse:collapse}td,th{border:1px solid #888;padding:4px 8px;text-align:left}</style>
+<h1>Medir recorte do cupom</h1>
+<p>Uso local, fora do app (não entra no <code>sw.js</code>). Abra pelo servidor local (<code>python -m http.server 8765</code>, depois <code>/tests/medir-recorte.html</code>), escolha as fotos de teste e compare a leitura sem e com recorte. As fotos ficam só neste computador. Não guarde fotos reais no repositório (use <code>tests/local/</code>, que o Git ignora).</p>
+<input type="file" id="f" accept="image/*" multiple>
+<table id="t"><thead><tr><th>Foto</th><th>Sem recorte: campos</th><th>s</th><th>Com recorte: campos</th><th>s</th><th>Recorte</th></tr></thead><tbody></tbody></table>
+<script src="../vendor/tesseract/tesseract.min.js"></script>
+<script src="../js/issuers.js"></script>
+<script src="../js/recorte.js"></script>
+<script src="../js/receipt.js"></script>
+<script>
+const campos = p => p.found.join(", ") || "(nada)";
+document.getElementById("f").addEventListener("change", async e => {
+  const tb = document.querySelector("tbody");
+  let n = 0;
+  for (const file of e.target.files) {
+    n++;
+    const tr = tb.insertRow();
+    tr.insertCell().textContent = "foto " + n; // sem o nome do arquivo
+    const run = async opts => {
+      const t = performance.now();
+      const info = {};
+      const txt = await ReceiptReader.readText(file, null, { ...opts, info });
+      return { p: ReceiptReader.parse(txt), s: ((performance.now() - t) / 1000).toFixed(1), info };
+    };
+    const a = await run({});
+    const b = await run({ recortar: true });
+    tr.insertCell().textContent = campos(a.p); tr.insertCell().textContent = a.s;
+    tr.insertCell().textContent = campos(b.p); tr.insertCell().textContent = b.s;
+    tr.insertCell().textContent = b.info.texto || "";
+  }
+});
+</script>
