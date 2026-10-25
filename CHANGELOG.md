@@ -10,6 +10,17 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
+## 1.13.0 — 25/10/2026
+
+### Mudou
+- **Saldo calculado pelos lançamentos:** o saldo de cada cartão passa a ser a soma do saldo inicial com os lançamentos, em vez de um número guardado que podia ficar fora do lugar. Depois de atualizar, vale conferir o saldo dos seus cartões.
+- **Apagar lançamento:** ao apagar, o app guarda uma marca de "apagado" em vez de sumir com o registro de vez. Na tela, o lançamento some do mesmo jeito.
+- **Números de identificação novos:** lançamentos e cartões criados daqui em diante ganham códigos mais longos e aleatórios, para não se repetirem entre aparelhos. Os que já existem continuam funcionando.
+- Nada muda na tela e o formato do backup continua o mesmo.
+
+### Por dentro
+- Esta versão é a base da futura sincronização com a Planilha Google: as funções de mesclar, carimbar a última mudança e calcular o saldo ficam em `js/sync.js`. A sincronização ainda não está ligada.
+
 ## 1.12.0 — 24/10/2026
 
 ### Novo
