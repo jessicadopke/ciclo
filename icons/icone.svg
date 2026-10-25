@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Fonte dos ícones icon-192.png e icon-512.png: fundo petróleo de ponta a ponta + símbolo do Ciclo (72% da largura). -->
+  <rect width="512" height="512" fill="#0e4f5c"/>
+  <g transform="translate(256 256) scale(7.68) translate(-24 -24)">
+    <path d="M35.3 15.5A14 14 0 1 0 38 24" fill="none" stroke="#7fe0d0" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="35.6" cy="15.6" r="4.6" fill="#ffb547"/>
+  </g>
+</svg>
