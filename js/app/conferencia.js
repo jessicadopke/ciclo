@@ -10,7 +10,7 @@ import { postTxs, run } from "./telas.js";
 
 export function reviewForm(sheet, blob, presetCardId, d, msg, rawText) {
   if (!sheet.querySelector("#scanBody")) return;
-  d = d || {};
+  d = Match.promoverVales(d || {}, S.cards);
   // Um cartão sugerido para cada parte paga com vale, e avisos de cartão que pode não estar na carteira
   const { saldos, others, parts, unknown } = Match.matchReceipt(d, S.cards, S.txs, presetCardId, defaultCardId());
   const pays = d.payments || [];

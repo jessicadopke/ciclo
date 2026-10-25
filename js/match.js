@@ -39,11 +39,29 @@
     }).sort((a, b) => b.score - a.score || (a.card.createdAt || 0) - (b.card.createdAt || 0));
   }
 
+  // A maquininha imprime "COMPRA CREDITO" ou "DEBITO" mesmo para cartão de benefício (Volus, por exemplo).
+  // Se o final do cartão pago como crédito/débito é de um vale cadastrado, a parte conta como vale.
+  function promoverVales(d, cards) {
+    d = d || {};
+    const pays = d.payments || [];
+    const ehVale = p => (p.kind === "credito" || p.kind === "debito") && p.last4 && cards.some(c => c.last4 === p.last4);
+    if (!pays.some(ehVale)) return d;
+    const payments = pays.map(p => ehVale(p) ? { ...p, kind: "vale" } : p);
+    const novos = payments.filter((p, i) => p.kind === "vale" && pays[i].kind !== "vale");
+    // pistas por vale, na ordem dos pagamentos
+    let k = 0;
+    const antigos = Array.isArray(d.vales) ? d.vales : [];
+    const vales = payments.filter(p => p.kind === "vale").map(p => pays.includes(p) ? antigos[k++] || { amount: p.amount, issuer: null, holder: null, type: null, last4: null, saldo: null } : { amount: p.amount, issuer: p.issuer || null, issuerRaw: null, holder: p.holder || null, type: p.type || null, last4: p.last4, saldo: p.saldo === undefined ? null : p.saldo });
+    const paid = payments.filter(p => p.kind === "vale").reduce((s, p) => s + p.amount, 0);
+    const balances = vales.filter(v => v.saldo !== null && v.saldo !== undefined).map(v => v.saldo);
+    return { ...d, payments, vales, paid, balances: balances.length ? balances : d.balances || [], balance: d.balance === undefined || d.balance === null ? (balances.length === 1 ? balances[0] : null) : d.balance, last4s: vales.map(v => v.last4).filter(Boolean), last4: vales.length === 1 ? vales[0].last4 : d.last4, found: (d.found || []).filter(f => f !== "outras formas de pagamento" || payments.some(p => p.kind !== "vale")), promovido: novos.length };
+  }
+
   // Leitura do cupom (d, de receipt.js ou gemini.js) → um cartão sugerido para cada parte paga com vale,
   // e os avisos de cartão que pode não estar na carteira.
   // fallbackCardId: cartão para a 1ª parte quando nada aponta para nenhum (o da tela aberta, por exemplo).
   function matchReceipt(d, cards, txs, presetCardId, fallbackCardId) {
-    d = d || {};
+    d = promoverVales(d, cards);
     // Saldos impressos (um por comprovante de vale), já como "saldo depois da compra"
     let saldos = d.balances && d.balances.length ? d.balances.slice() : typeof d.balance === "number" ? [d.balance] : [];
     if (saldos.length === 1 && d.balanceMoment === "antes_compra" && d.paid > 0) saldos = [saldos[0] - d.paid];
@@ -95,5 +113,5 @@
     return { saldos, others, parts, unknown };
   }
 
-  window.Match = { rankCards, matchReceipt, storeKeyOf, descKey };
+  window.Match = { promoverVales, rankCards, matchReceipt, storeKeyOf, descKey };
 })();

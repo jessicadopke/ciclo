@@ -74,3 +74,20 @@ test("loja onde o cartão já foi usado pesa na escolha", () => {
   assert.equal(r[0].card.id, "b");
   assert.equal(r[0].reasons[0], "usado 2 vezes nesta loja");
 });
+
+test("maquininha imprime CREDITO mas o final é de um vale cadastrado: conta como vale", () => {
+  const cards = [{ id: "v", name: "Volus", last4: "5257", balance: 47632, issuer: null }, { id: "o", name: "Outro", last4: "1111", balance: 1000 }];
+  const d = { total: 4683, paid: null, payments: [{ kind: "credito", amount: 4683, last4: "5257" }], vales: [], balances: [], last4s: [], found: ["outras formas de pagamento"] };
+  const m = Match.matchReceipt(d, cards, [], null, "o");
+  assert.equal(m.others.length, 0);
+  assert.equal(m.parts.length, 1);
+  assert.equal(m.parts[0].amount, 4683);
+  assert.equal(m.parts[0].cardId, "v");
+});
+
+test("crédito com final que não é de nenhum vale continua sendo crédito", () => {
+  const cards = [{ id: "v", name: "Volus", last4: "5257", balance: 47632 }];
+  const d = { total: 4683, payments: [{ kind: "credito", amount: 4683, last4: "9999" }], vales: [], balances: [] };
+  const m = Match.matchReceipt(d, cards, [], null, "v");
+  assert.equal(m.others.length, 1);
+});

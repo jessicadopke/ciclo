@@ -53,7 +53,7 @@
 Extraia os dados no formato pedido. Regras:
 - Valores em reais como número decimal (ex.: 87.43). Use null quando a informação não aparecer. Não invente.
 - "pagamentos": uma linha para cada forma de pagamento usada na compra (seção "FORMA DE PAGAMENTO" da NFC-e e/ou comprovantes da maquininha). Não repita a mesma parte só porque aparece na NFC-e e no comprovante.
-- forma "vale" para cartões de benefício: vale-alimentação, vale-refeição, voucher, multibenefício (VR, Alelo, Pluxee/Sodexo, Ticket, Flash, Caju, iFood Benefícios, Swile, Ben etc.). "credito"/"debito" só para cartões bancários comuns.
+- forma "vale" para cartões de benefício: vale-alimentação, vale-refeição, voucher, multibenefício (VR, Alelo, Pluxee/Sodexo, Ticket, Flash, Caju, iFood Benefícios, Swile, Ben etc.). "credito"/"debito" só para cartões bancários comuns. A maquininha às vezes imprime "COMPRA CREDITO" ou "DEBITO" mesmo para cartão de benefício: preencha sempre "cartao_impresso"/"final_cartao" de cada pagamento, para o app conferir o cartão.
 - "saldo": saldo disponível do cartão de benefício impresso no comprovante daquele pagamento (SALDO, SALDO DISPONIVEL, SALDO ATUAL). Nunca confunda com troco, total, desconto ou valor pago. "saldo_momento": "apos_compra" se o saldo já desconta esta compra (o normal), "antes_compra" se o comprovante diz que é o saldo anterior.
 - "emissor": a rede ou administradora do cartão de benefício, que costuma aparecer no comprovante da maquininha (ex.: "VR BENEFICIOS" → VR, "PLUXEE" → Pluxee, "ALELO REFEICAO" → Alelo). Não confunda com a adquirente da maquininha (Cielo, Rede, Stone, GetNet, PagSeguro, SiTef) nem com a bandeira de crédito. "texto_cartao": copie a linha onde o emissor aparece.
 - "tipo_cartao": alimentacao, refeicao ou flex (multibenefício) só se o comprovante disser; senão "desconhecido".
@@ -259,7 +259,7 @@ Extraia os dados no formato pedido. Regras:
       date,
       total: cents(j.valor_total),
       paid: vales.length ? vales.reduce((s, p) => s + p.amount, 0) : null,
-      payments: pays.map(p => ({ kind: p.kind, amount: p.amount })),
+      payments: pays.map(p => ({ kind: p.kind, amount: p.amount, last4: p.last4 || null, issuer: p.issuer, holder: p.holder, type: p.type, saldo: p.saldo })),
       // pistas de cada vale, na mesma ordem dos pagamentos "vale"
       vales: vales.map(p => ({ amount: p.amount, issuer: p.issuer, issuerRaw: p.issuer ? null : p.issuerRaw, holder: p.holder, type: p.type, last4: p.last4, saldo: p.saldo === null ? null : p.moment === "antes_compra" ? p.saldo - p.amount : p.saldo })),
       balances,
