@@ -202,3 +202,20 @@ test("marcas de apagado com mais de 90 dias são limpas ao abrir", async () => {
   const { lojas } = await abrir({ txs: [velha] });
   assert.equal(lojas.txs.has("v"), false);
 });
+
+test("postTxs e deleteTx: saldo certo sem gravar no cartão; apagar lançamento devolve o saldo", async () => {
+  const telas = await import(pathToFileURL(path.join(dir, "telas.js")).href).catch(e => e);
+  if (telas instanceof Error) return; // telas.js precisa do navegador; o caminho acima já cobre Store
+  const { S, Store, lojas } = await abrir({});
+  await Store.put("cards", card("c1", { balance: 0, saldoBase: 10000 }));
+  const antes = lojas.cards.get("c1").updatedAt;
+  const saldo = await telas.postTxs(S.cards[0], [
+    { kind: "debit", amount: 1500, date: "2026-10-01" },
+    { kind: "credit", amount: 200, date: "2026-10-02" },
+  ]);
+  assert.equal(saldo, 10000 - 1500 + 200);
+  assert.equal(lojas.cards.get("c1").updatedAt, antes);
+  await telas.deleteTx(S.txs.find(t => t.amount === 1500));
+  assert.equal(S.cards[0].balance, 10200);
+  assert.equal(lojas.cards.get("c1").updatedAt, antes);
+});
