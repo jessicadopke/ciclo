@@ -13,7 +13,7 @@ const manifest = JSON.parse(ler("manifest.webmanifest"));
 
 // Decodificação mínima de PNG RGBA 8 bits (sem dependência).
 function png(f) {
-  const b = fs.readFileSync(path.join(raiz, f));
+  const b = fs.readFileSync(path.resolve(raiz, f));
   let p = 8, w, h; const idat = [];
   while (p < b.length) {
     const l = b.readUInt32BE(p), t = b.toString("latin1", p + 4, p + 8);
@@ -124,4 +124,16 @@ test("metas theme-color voltam aos valores originais", () => {
   const f = app.match(/function fecharAbertura\(\) \{[\s\S]*?\n\}/)[0];
   assert.match(f, /claro\.content = "#f3f7f7"/);
   assert.match(f, /escuro\.content = "#081417"/);
+});
+
+test("gerador regenera os ícones any com tamanho certo e cantos petróleo", () => {
+  const pasta = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "ciclo-icones-"));
+  try {
+    require("node:child_process").execFileSync(process.execPath, [path.join(raiz, "scripts/gerar-icones.mjs"), pasta], { stdio: "pipe" });
+    for (const n of [192, 512]) {
+      const im = png(path.join(pasta, `icon-${n}.png`));
+      assert.equal(im.w, n); assert.equal(im.h, n);
+      for (const [x, y] of [[0, 0], [n - 1, 0], [0, n - 1], [n - 1, n - 1]]) assert.deepEqual(im.at(x, y), [14, 79, 92, 255]);
+    }
+  } finally { fs.rmSync(pasta, { recursive: true, force: true }); }
 });
