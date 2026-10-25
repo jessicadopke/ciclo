@@ -54,6 +54,7 @@ Extraia os dados no formato pedido. Regras:
 - Valores em reais como número decimal (ex.: 87.43). Use null quando a informação não aparecer. Não invente.
 - "pagamentos": uma linha para cada forma de pagamento usada na compra (seção "FORMA DE PAGAMENTO" da NFC-e e/ou comprovantes da maquininha). Não repita a mesma parte só porque aparece na NFC-e e no comprovante.
 - forma "vale" para cartões de benefício: vale-alimentação, vale-refeição, voucher, multibenefício (VR, Alelo, Pluxee/Sodexo, Ticket, Flash, Caju, iFood Benefícios, Swile, Ben etc.). "credito"/"debito" só para cartões bancários comuns.
+- O comprovante da maquininha pode imprimir "CRÉDITO" ou "DÉBITO" mesmo quando o cartão é de benefício. Para TODO pagamento com cartão (inclusive "credito" e "debito") preencha "cartao_impresso" e "final_cartao" se estiverem impressos; nunca invente. A classificação da forma continua como acima: "vale" só quando o emissor ou o texto indicar benefício.
 - "saldo": saldo disponível do cartão de benefício impresso no comprovante daquele pagamento (SALDO, SALDO DISPONIVEL, SALDO ATUAL). Nunca confunda com troco, total, desconto ou valor pago. "saldo_momento": "apos_compra" se o saldo já desconta esta compra (o normal), "antes_compra" se o comprovante diz que é o saldo anterior.
 - "emissor": a rede ou administradora do cartão de benefício, que costuma aparecer no comprovante da maquininha (ex.: "VR BENEFICIOS" → VR, "PLUXEE" → Pluxee, "ALELO REFEICAO" → Alelo). Não confunda com a adquirente da maquininha (Cielo, Rede, Stone, GetNet, PagSeguro, SiTef) nem com a bandeira de crédito. "texto_cartao": copie a linha onde o emissor aparece.
 - "tipo_cartao": alimentacao, refeicao ou flex (multibenefício) só se o comprovante disser; senão "desconhecido".
@@ -259,7 +260,7 @@ Extraia os dados no formato pedido. Regras:
       date,
       total: cents(j.valor_total),
       paid: vales.length ? vales.reduce((s, p) => s + p.amount, 0) : null,
-      payments: pays.map(p => ({ kind: p.kind, amount: p.amount })),
+      payments: pays.map(p => ({ kind: p.kind, amount: p.amount, last4: p.last4, issuer: p.issuer, issuerRaw: p.issuer ? null : p.issuerRaw, holder: p.holder, type: p.type, saldo: p.saldo, moment: p.moment })),
       // pistas de cada vale, na mesma ordem dos pagamentos "vale"
       vales: vales.map(p => ({ amount: p.amount, issuer: p.issuer, issuerRaw: p.issuer ? null : p.issuerRaw, holder: p.holder, type: p.type, last4: p.last4, saldo: p.saldo === null ? null : p.moment === "antes_compra" ? p.saldo - p.amount : p.saldo })),
       balances,
@@ -365,5 +366,5 @@ Extraia os dados no formato pedido. Regras:
     return { last: oks.length ? oks[oks.length - 1] : null, reads30: recent.filter(x => x.ok).length, quota30: recent.filter(x => x.st === 429).length };
   }
 
-  window.GeminiReader = { read, readCard, test, listModels, usage, toParsed, explain, describe, shortStatus, DEFAULT_MODEL };
+  window.GeminiReader = { PROMPT, read, readCard, test, listModels, usage, toParsed, explain, describe, shortStatus, DEFAULT_MODEL };
 })();

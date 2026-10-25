@@ -46,3 +46,20 @@ test("status de cada tentativa em poucas palavras", () => {
   assert.equal(GeminiReader.shortStatus(404), "não encontrado");
   assert.equal(GeminiReader.shortStatus(503), "sobrecarregado");
 });
+
+test("crédito com final: final fica no pagamento, paid continua só dos vales", () => {
+  const p = GeminiReader.toParsed(respostaGemini("credito-final-de-vale.json"));
+  assert.equal(p.payments.length, 1);
+  assert.equal(p.payments[0].kind, "credito");
+  assert.equal(p.payments[0].amount, 5000);
+  assert.equal(p.payments[0].last4, "0000");
+  assert.equal(p.paid, null);
+  assert.deepEqual(p.last4s, []);
+  assert.equal(p.last4, null);
+  assert.deepEqual(p.vales, []);
+});
+
+test("o prompt pede o final de todo pagamento com cartão", () => {
+  assert.match(GeminiReader.PROMPT, /TODO pagamento com cartão \(inclusive "credito" e "debito"\)/);
+  assert.match(GeminiReader.PROMPT, /nunca invente/);
+});
