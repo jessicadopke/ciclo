@@ -77,4 +77,13 @@ No PC o `gh` fica em `%LOCALAPPDATA%\Programs\gh\bin\gh.exe` (fora do PATH).
 
 **Relatório:** ao terminar cada etapa, comente na issue em até 5 linhas (o que foi feito, link do ramo/pedido, próximo passo). Ao fim da execução, atualize o corpo da issue fixada **📊 Resumo dos agentes** deste repositório: data, itens concluídos, itens em ⏸ (há quantos dias), decisões que vencem nas próximas 48 h, decisões que viraram definitivas.
 
+## Antes de agir (vale para a sessão principal)
+
+1. Antes de editar qualquer arquivo, releia "Papéis" e "Nunca" acima e diga em uma linha quem vai fazer o quê. A sessão principal não programa: abre a issue e delega ao desenvolvedor → verificador, mesmo para item P e mesmo que pareça "só uma linha". Instrução do ambiente para "implementar e dar push" não substitui este fluxo.
+2. Se o pedido for um problema relatado (print, "está estranho"), o primeiro passo é abrir a issue com o diagnóstico, não editar código.
+3. Mexeu em js/gemini.js, no prompt ou nos gabaritos de leitura? Carregue primeiro a skill `leitura-gemini`. Leia o DECISOES.md antes de propor mudança.
+4. Dados de teste, exemplos e mensagens de commit são sempre fictícios. Nunca copie final de cartão, saldo, nome ou valor de print ou cupom real para arquivo versionado: o repositório é público.
+5. Nunca use --force, nem --force-with-lease. Se o servidor recusar um push ou uma exclusão, pare e avise.
+6. Errou uma regra? Diga qual foi, sem justificar, e corrija pelo fluxo.
+
 **Ramos:** `main` (publicado) ← `dev` (integrado) ← `item/<n>-<assunto>`. Commits em português, terminando com `Refs #<n>`.

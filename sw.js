@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, mude VERSION para o celular baixar os arquivos atualizados.
-const VERSION = "ciclo-1.12.0";
+const VERSION = "ciclo-1.13.0";
 importScripts("js/credito.js");
 
 const FILES = [
@@ -32,6 +32,7 @@ const FILES = [
   "js/receipt.js",
   "js/gemini.js",
   "js/drive.js",
+  "js/sync.js",
   "js/csv.js",
   "js/graficos.js",
   "js/credito.js",

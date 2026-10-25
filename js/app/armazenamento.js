@@ -58,15 +58,60 @@ export async function migrateOldDb() {
   await new Promise(res => { const d = indexedDB.deleteDatabase(OLD_DB_NAME); d.onsuccess = d.onerror = d.onblocked = res; });
   return data.cards.length > 0;
 }
+// Base completa (cartões e lançamentos, inclusive marcas de apagado). Fora de `S`: a tela só vê os visíveis.
+export const Base = { cards: [], txs: [] };
+const aparelho = () => (S.meta && S.meta.sync && S.meta.sync.aparelho) || "";
+// Refaz o que a tela vê a partir da base. O saldo é derivado (saldoBase + lançamentos) e vai no próprio objeto do cartão.
+function refazer() {
+  const v = Sync.visiveis(Base);
+  for (const c of v.cards) c.balance = Sync.saldo(c, v.txs);
+  S.cards = v.cards; S.txs = v.txs;
+}
+function guardar(k, obj) {
+  const i = Base[k].findIndex(x => x.id === obj.id);
+  if (i >= 0) Base[k][i] = obj; else Base[k].push(obj);
+}
+function idAleatorio() {
+  const b = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(b, x => "0123456789abcdefghijklmnopqrstuvwxyz"[x % 36]).slice(0, 12).join("");
+}
 export const Store = {
-  async put(k, obj) { await IDB.put(k, obj); upsert(k, obj); },
-  async patch(k, id, part) {
-    const cur = S[k].find(x => x.id === id);
-    if (!cur) throw new Error("registro não encontrado");
-    const obj = { ...cur, ...part };
-    await IDB.put(k, obj); upsert(k, obj);
+  // Ao abrir (e ao restaurar backup): migra dados antigos, limpa marcas velhas e monta o que a tela vê.
+  async carregar({ cards, txs }) {
+    if (!(S.meta && S.meta.sync && S.meta.sync.aparelho)) await Store.setMeta({ ...S.meta, sync: { ...(S.meta && S.meta.sync), aparelho: idAleatorio() } });
+    const m = Sync.migrar({ cards, txs });
+    for (const { loja, registro } of m.mudados) await IDB.put(loja, registro);
+    const agora = Date.now();
+    const lc = Sync.limparMarcas(m.cards, agora), lt = Sync.limparMarcas(m.txs, agora);
+    for (const id of lc.removidos) await IDB.del("cards", id);
+    for (const id of lt.removidos) await IDB.del("txs", id);
+    Base.cards = lc.lista; Base.txs = lt.lista;
+    refazer();
   },
-  async remove(k, id) { await IDB.del(k, id); S[k] = S[k].filter(x => x.id !== id); },
+  aoMudar: null, // etapa 2: chamada com (loja, registro) depois de cada gravação em cards/txs
+  async put(k, obj) {
+    let novo = obj;
+    if (k === "cards" || k === "txs") {
+      const antes = Base[k].find(x => x.id === obj.id);
+      novo = Sync.carimbar(obj, antes, aparelho(), Date.now());
+      if (k === "cards" && novo.saldoBase === undefined) novo.saldoBase = 0;
+    }
+    await IDB.put(k, novo);
+    if (k === "cards" || k === "txs") { guardar(k, novo); refazer(); if (Store.aoMudar) Store.aoMudar(k, novo); }
+    else upsert(k, novo);
+  },
+  async patch(k, id, part) {
+    const cur = Base[k].find(x => x.id === id && !x.apagado);
+    if (!cur) throw new Error("registro não encontrado");
+    await Store.put(k, { ...cur, ...part });
+  },
+  async remove(k, id) {
+    const antes = Base[k].find(x => x.id === id);
+    const marca = Sync.marcaApagado(antes || { id }, aparelho(), Date.now());
+    await IDB.put(k, marca);
+    guardar(k, marca); refazer();
+    if (Store.aoMudar) Store.aoMudar(k, marca);
+  },
   async setMeta(m) { await IDB.put("meta", m, "main"); S.meta = m; },
 };
 function upsert(k, obj) {

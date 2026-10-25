@@ -1,5 +1,5 @@
 // Desenho das telas principais, navegação, tema e ações gerais.
-import { $, brl, delta, esc, explain, fmtDay, fmtInput, fold, ICON, toast, uid } from "./util.js";
+import { $, brl, esc, explain, fmtDay, fmtInput, fold, ICON, toast, uid } from "./util.js";
 import { cardById, config, S, txSort, ui, visibleCards } from "./estado.js";
 import { hasCrypto } from "./cripto.js";
 import { isBenefitCredit, periodAt, periodShift } from "./periodos.js";
@@ -19,21 +19,16 @@ export async function run(fn, okMsg) {
   catch (e) { console.error(e); toast(explain(e)); return false; }
   finally { S.busy = false; render(); }
 }
-// Grava lançamentos de um cartão e atualiza o saldo uma única vez.
+// Grava lançamentos de um cartão. O saldo é derivado dos lançamentos (não se grava mais no cartão).
 export async function postTxs(card, list) {
-  let bal = card.balance || 0;
   for (const t of list) {
     const tx = { id: uid(), cardId: card.id, cat: "", source: "manual", createdAt: Date.now(), ...t };
     await Store.put("txs", tx);
-    bal += delta(tx);
   }
-  await Store.patch("cards", card.id, { balance: bal });
-  return bal;
+  return cardById(card.id).balance;
 }
 export async function deleteTx(tx) {
-  const card = cardById(tx.cardId);
   await Store.remove("txs", tx.id);
-  if (card) await Store.patch("cards", card.id, { balance: (card.balance || 0) - delta(tx) });
   // A foto pode ser compartilhada pelas partes de uma compra dividida: só apaga quando ninguém mais usa.
   if (tx.receiptId && !S.txs.some(t => t.receiptId === tx.receiptId)) await IDB.del("receipts", tx.receiptId);
 }

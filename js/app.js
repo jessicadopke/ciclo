@@ -14,7 +14,7 @@ import { avisoDesligar, avisoLigar, creditBatchSheet, creditSheet, pendingCredit
 import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, renderTop, renderTxArea, run, themeNow, themeSheet } from "./app/telas.js";
 
 // Versão do app (SemVer: MAJOR.MINOR.PATCH). Ao mudar, atualize também CHANGELOG.md e VERSION em sw.js.
-const APP_VERSION = "1.12.0";
+const APP_VERSION = "1.13.0";
 config.APP_VERSION = APP_VERSION;
 
 window.addEventListener("popstate", () => {
@@ -171,7 +171,9 @@ document.addEventListener("visibilitychange", () => {
     const migrated = await migrateOldDb().catch(e => { console.warn("migração", e); return false; });
     if (migrated) setTimeout(() => toast("Seus dados foram trazidos da versão anterior."), 600);
     const [cards, txs, meta] = await Promise.all([IDB.all("cards"), IDB.all("txs"), IDB.get("meta", "main")]);
-    S.cards = cards; S.txs = txs; S.meta = meta || {}; S.loaded = true;
+    S.meta = meta || {};
+    await Store.carregar({ cards, txs });
+    S.loaded = true;
     history.replaceState({ home: true }, "");
     render();
     setTimeout(() => checkUpdate(false), 1500);
