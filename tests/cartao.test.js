@@ -74,3 +74,92 @@ test("loja onde o cartão já foi usado pesa na escolha", () => {
   assert.equal(r[0].card.id, "b");
   assert.equal(r[0].reasons[0], "usado 2 vezes nesta loja");
 });
+
+// ---- crédito/débito impresso para cartão de vale (final cadastrado) ----
+const soma = m => m.parts.reduce((s, p) => s + p.amount, 0) + m.others.reduce((s, p) => s + p.amount, 0);
+const cartA = () => cartao("a", { name: "Cartão A", last4: "0000", balance: 50000 });
+const cartB = () => cartao("b", { name: "Cartão B", last4: "1111", balance: 50000 });
+const cred = (amount, last4, kind = "credito") => ({ kind, amount, last4 });
+const cupomCred = (payments, extra) => ({ paid: null, payments, balances: [], ...extra });
+
+test("crédito com final de vale cadastrado conta como vale", () => {
+  const m = Match.matchReceipt(cupomCred([cred(5000, "0000")]), [cartA(), cartB()], [], null, "b");
+  assert.equal(m.parts.length, 1);
+  assert.equal(m.parts[0].amount, 5000);
+  assert.equal(m.parts[0].cardId, "a");
+  assert.ok(m.parts[0].pick.reasons.includes("final 0000"));
+  assert.deepEqual(m.others, []);
+  assert.equal(m.convertidos.length, 1);
+  assert.deepEqual([m.convertidos[0].amount, m.convertidos[0].last4, m.convertidos[0].kind, m.convertidos[0].cardName, m.convertidos[0].incerto], [5000, "0000", "credito", "Cartão A", false]);
+  assert.equal(m.payments[0].kind, "vale");
+  assert.equal(soma(m), 5000);
+});
+
+test("crédito com final desconhecido continua crédito (e débito também)", () => {
+  for (const kind of ["credito", "debito"]) {
+    const m = Match.matchReceipt(cupomCred([cred(5000, "9999", kind)]), [cartA()], [], null, "a");
+    assert.deepEqual(m.others, [{ kind, amount: 5000 }]);
+    assert.deepEqual(m.convertidos, []);
+    assert.equal(m.parts[0].amount, 0);
+  }
+});
+
+test("débito com final de vale cadastrado também converte", () => {
+  const m = Match.matchReceipt(cupomCred([cred(2000, "1111", "debito")]), [cartA(), cartB()], [], null, "a");
+  assert.equal(m.parts[0].cardId, "b");
+  assert.equal(m.convertidos[0].kind, "debito");
+});
+
+test("crédito sem final continua crédito", () => {
+  const m = Match.matchReceipt(cupomCred([{ kind: "credito", amount: 5000, issuer: "VR" }]), [cartA()], [], null, "a");
+  assert.deepEqual(m.others, [{ kind: "credito", amount: 5000 }]);
+  assert.deepEqual(m.convertidos, []);
+});
+
+test("misto: vale e crédito comum", () => {
+  const d = cupomCred([{ kind: "vale", amount: 3000, last4: "0000" }, cred(2000, "9999")], { paid: 3000, last4: "0000", last4s: ["0000"] });
+  const m = Match.matchReceipt(d, [cartA(), cartB()], [], null, "a");
+  assert.deepEqual(m.parts.map(p => [p.amount, p.cardId]), [[3000, "a"]]);
+  assert.deepEqual(m.others, [{ kind: "credito", amount: 2000 }]);
+  assert.deepEqual(m.convertidos, []);
+  assert.equal(soma(m), 5000);
+});
+
+test("misto: vale e crédito de outro vale", () => {
+  const d = cupomCred([{ kind: "vale", amount: 3000, last4: "0000" }, cred(2000, "1111")], {
+    paid: 3000, last4: "0000", last4s: ["0000"], vales: [{ amount: 3000, issuer: null, holder: null, last4: "0000", saldo: null }],
+  });
+  const m = Match.matchReceipt(d, [cartA(), cartB()], [], null, "a");
+  assert.deepEqual(m.parts.map(p => [p.amount, p.cardId]), [[3000, "a"], [2000, "b"]]);
+  assert.deepEqual(m.others, []);
+  assert.equal(m.convertidos.length, 1);
+  assert.equal(m.convertidos[0].cardName, "Cartão B");
+  assert.equal(soma(m), 5000);
+});
+
+test("vale e pix não muda", () => {
+  const d = cupomCred([{ kind: "vale", amount: 3000 }, { kind: "pix", amount: 2000 }], { paid: 3000, last4: "0000" });
+  const m = Match.matchReceipt(d, [cartA()], [], null, "a");
+  assert.deepEqual(m.parts.map(p => [p.amount, p.cardId]), [[3000, "a"]]);
+  assert.deepEqual(m.others, [{ kind: "pix", amount: 2000 }]);
+  assert.deepEqual(m.convertidos, []);
+  assert.equal(soma(m), 5000);
+});
+
+test("final igual em dois cartões: converte e pede confirmação", () => {
+  const cards = [cartao("a", { name: "Cartão A", last4: "0000", balance: 50000 }), cartao("b", { name: "Cartão B", last4: "0000", balance: 50000 })];
+  const m = Match.matchReceipt(cupomCred([cred(5000, "0000")]), cards, [], null, "a");
+  assert.equal(m.parts[0].amount, 5000);
+  assert.equal(m.parts[0].confident, false);
+  assert.equal(m.convertidos[0].incerto, true);
+  assert.deepEqual(m.others, []);
+});
+
+test("dois pagamentos com o mesmo final em dois cartões iguais pegam um cartão cada", () => {
+  const cards = [cartao("a", { name: "Cartão A", last4: "0000" }), cartao("b", { name: "Cartão B", last4: "0000" })];
+  const m = Match.matchReceipt(cupomCred([cred(3000, "0000"), cred(2000, "0000")]), cards, [], null, "a");
+  assert.equal(m.parts.length, 2);
+  assert.notEqual(m.parts[0].cardId, m.parts[1].cardId);
+  assert.ok(m.parts.every(p => p.cardId));
+  assert.equal(soma(m), 5000);
+});
