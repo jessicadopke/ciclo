@@ -14,7 +14,7 @@ import { avisoDesligar, avisoLigar, creditBatchSheet, creditSheet, pendingCredit
 import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, renderTop, renderTxArea, run, themeNow, themeSheet } from "./app/telas.js";
 
 // Versão do app (SemVer: MAJOR.MINOR.PATCH). Ao mudar, atualize também CHANGELOG.md e VERSION em sw.js.
-const APP_VERSION = "1.13.0";
+const APP_VERSION = "1.13.1";
 config.APP_VERSION = APP_VERSION;
 
 window.addEventListener("popstate", () => {
