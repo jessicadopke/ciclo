@@ -10,6 +10,12 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
+## 1.13.1 — 25/10/2026
+
+### Corrigido
+- **Cupom de vale impresso como crédito:** algumas maquininhas imprimem "crédito" ou "débito" mesmo quando o cartão usado é um vale. Se o final desse cartão no cupom é o de um vale seu, o app agora lança o valor como vale, com o cartão escolhido e o saldo descontado. Cartão de banco comum continua sendo lançado como crédito.
+- **Aviso na conferência:** quando isso acontece, a tela de conferência avisa o que foi feito e põe o valor em "Pago com vale", para você conferir ou mudar.
+
 ## 1.13.0 — 25/10/2026
 
 ### Mudou

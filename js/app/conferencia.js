@@ -12,8 +12,8 @@ export function reviewForm(sheet, blob, presetCardId, d, msg, rawText) {
   if (!sheet.querySelector("#scanBody")) return;
   d = d || {};
   // Um cartão sugerido para cada parte paga com vale, e avisos de cartão que pode não estar na carteira
-  const { saldos, others, parts, unknown } = Match.matchReceipt(d, S.cards, S.txs, presetCardId, defaultCardId());
-  const pays = d.payments || [];
+  const { saldos, others, parts, unknown, payments: payEf, convertidos } = Match.matchReceipt(d, S.cards, S.txs, presetCardId, defaultCardId());
+  const pays = payEf || d.payments || [];
   const unkLabel = u => esc([u.issuer || u.issuerRaw, u.last4 ? "final " + u.last4 : ""].filter(Boolean).join(" ") || "deste cupom");
   const unknownHTML = unknown.map(u => {
     const amt = u.amount ? ` (<span class="num">${brl(u.amount)}</span>)` : "";
@@ -31,13 +31,26 @@ export function reviewForm(sheet, blob, presetCardId, d, msg, rawText) {
     </div>
     <div id="ncBox${u.i}"></div>`;
   }).join("");
+  // Cupom que diz "crédito"/"débito" com o final de um cartão de vale cadastrado: contado como vale (aviso informativo)
+  const kindTxt = k => k === "debito" ? "débito" : "crédito";
+  const convHTML = !convertidos || !convertidos.length ? "" : (() => {
+    const kinds = [...new Set(convertidos.map(c => kindTxt(c.kind)))];
+    const kt = kinds.length === 1 ? `"${kinds[0]}"` : '"crédito" ou "débito"';
+    const incertos = convertidos.filter(c => c.incerto);
+    const text = incertos.length
+      ? `O cupom diz ${kt} e o final ${incertos[0].last4} aparece em mais de um cartão seu. Escolha qual foi usado.`
+      : convertidos.length === 1
+        ? `O cupom diz ${kt}, mas o final ${convertidos[0].last4} é do seu cartão ${convertidos[0].cardName}. Contei ${brl(convertidos[0].amount)} como vale. Se não for isso, mude o valor em "Pago com vale".`
+        : `O cupom diz ${kt} em ${convertidos.length} pagamentos, mas os finais são de cartões seus. Contei como vale: ${convertidos.map(c => `${brl(c.amount)} (${c.cardName})`).join(", ")}.`;
+    return `<div class="notice info" id="unkConv"><span>${esc(text)}</span></div>`;
+  })();
   const hardUnknown = i => unknown.some(u => u.i === i && u.kind !== "fraco");
   const suggestLine = parts.map((pt, i) => hardUnknown(i) ? "" : pt.pick && pt.pick.reasons.length
     ? `<span>${parts.length > 1 ? `Vale ${i + 1} (${brl(pt.amount)}): ` : "Cartão "}${pt.confident ? "identificado" : "provável"}: <b>${esc(pt.pick.card.name)}</b>${pt.pick.card.holder ? ` (${esc(pt.pick.card.holder)})` : ""} · ${esc(pt.pick.reasons.join(", "))}${pt.confident ? "" : " (confira o cartão)"}</span>`
     : S.cards.length > 1 ? `<span>${parts.length > 1 ? `Vale ${i + 1}: n` : "N"}ão consegui identificar o cartão pelo cupom. Escolha abaixo.</span>` : "").join("");
   const date = d.date || todayISO();
   const state = { cat: d.category || "", dupOk: false };
-  const payLine = pays.length > 1 ? `<span>Pagamento: ${esc(pays.map(p => `${p.kind === "vale" ? "vale" : OTHER_KINDS[p.kind] || p.kind} ${brl(p.amount)}`).join(" + "))}</span>` : "";
+  const payLine = pays.length > 1 || (convertidos && convertidos.length) ? `<span>Pagamento: ${esc(pays.map(p => `${p.kind === "vale" ? "vale" : OTHER_KINDS[p.kind] || p.kind} ${brl(p.amount)}`).join(" + "))}</span>` : "";
   const summary = d.found && d.found.length ? `
     <div class="found">
       <span><b>${d.source === "gemini" ? "Lido pelo Gemini" : "Lido no celular"}:</b> ${esc(d.found.join(", "))}${d.issuer ? ` · ${esc(d.issuer)}` : ""}${d.last4 ? ` final ${esc(d.last4)}` : ""}</span>
@@ -50,6 +63,7 @@ export function reviewForm(sheet, blob, presetCardId, d, msg, rawText) {
     ${msg ? `<div class="notice">${esc(msg)}</div>` : ""}
     ${d.recorteMini ? `<div class="found recorte-usado"><img src="${d.recorteMini}" alt="Recorte usado na leitura"><span>O app recortou a foto antes de ler.<br><button type="button" class="btn small" id="rNoCrop">Ler de novo sem recorte</button></span></div>` : ""}
     ${summary}
+    ${convHTML}
     ${unknownHTML}
     <form id="rForm" class="sform">
       <div class="field"><span>Pago com vale</span>${splitHTML("rs")}</div>

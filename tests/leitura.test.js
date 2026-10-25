@@ -62,3 +62,19 @@ test("cartão por foto: emissor, tipo, titular e só o final do número", () => 
   assert.equal(c.holder, "Maria Souza");
   assert.equal(c.last4, "4821");
 });
+
+test("Tesseract: crédito com final único recebe o final", () => {
+  const r = ReceiptReader.parse(cupom("credito-final-de-vale.txt"));
+  assert.deepEqual(kinds(r), ["credito:5000"]);
+  assert.equal(r.payments[0].last4, "0000");
+});
+
+test("Tesseract: dois cartões sem ligação clara não atribui final", () => {
+  const dois = cupom("credito-final-de-vale.txt").replace("CARTAO DE CREDITO 50,00", "CARTAO DE CREDITO 30,00\nCARTAO DE DEBITO 20,00")
+    + "CARTAO: 123456******1111\n";
+  const r = ReceiptReader.parse(dois);
+  assert.deepEqual(r.payments.map(p => p.kind), ["credito", "debito"]);
+  assert.ok(r.payments.every(p => !p.last4));
+  const doisFinais = cupom("credito-final-de-vale.txt") + "CARTAO: 123456******1111\n";
+  assert.equal(ReceiptReader.parse(doisFinais).payments[0].last4, undefined);
+});
