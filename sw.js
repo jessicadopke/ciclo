@@ -32,6 +32,7 @@ const FILES = [
   "js/receipt.js",
   "js/gemini.js",
   "js/drive.js",
+  "js/sync.js",
   "js/csv.js",
   "js/graficos.js",
   "js/credito.js",
