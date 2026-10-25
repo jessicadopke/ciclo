@@ -1,0 +1,8 @@
+{
+  "legivel": true,
+  "pagamentos": [
+    { "forma": "credito", "valor": 50.00, "emissor": null, "cartao_impresso": "123456******0000", "final_cartao": "0000", "saldo": null, "saldo_momento": "apos_compra",
+      "texto_cartao": "COMPRA CREDITO A VISTA", "tipo_cartao": "desconhecido", "titular": null }
+  ],
+  "categoria": "Mercado", "cnpj": "11222333000181", "data": "2026-10-20", "estabelecimento": "MERCADO EXEMPLO", "valor_total": 50.00
+}

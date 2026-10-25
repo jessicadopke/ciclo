@@ -48,14 +48,35 @@
     let saldos = d.balances && d.balances.length ? d.balances.slice() : typeof d.balance === "number" ? [d.balance] : [];
     if (saldos.length === 1 && d.balanceMoment === "antes_compra" && d.paid > 0) saldos = [saldos[0] - d.paid];
     // Partes pagas com vale e com outras formas, lidas da NFC-e
-    const pays = d.payments || [];
-    let valeAmts = pays.filter(p => p.kind === "vale").map(p => p.amount);
+    // Crédito/débito com o final de um cartão cadastrado é o vale que a maquininha imprimiu como crédito:
+    // vale quando o final foi lido, é de um cartão da carteira e o valor é maior que zero.
+    const pays = (d.payments || []).map(p => ({ ...p }));
+    const convertidos = [];
+    for (const p of pays) {
+      if ((p.kind === "credito" || p.kind === "debito") && p.last4 && p.amount > 0 && cards.some(c => c.last4 === p.last4)) {
+        convertidos.push({ amount: p.amount, last4: p.last4, kind: p.kind, pay: p });
+        p.kind = "vale";
+      }
+    }
+    const valePays = pays.filter(p => p.kind === "vale");
+    let valeAmts = valePays.map(p => p.amount);
     if (!valeAmts.length && d.paid > 0) valeAmts = [d.paid];
     const others = pays.filter(p => p.kind !== "vale").map(p => ({ kind: p.kind, amount: p.amount }));
     // Escolhe um cartão para cada parte, sem repetir, do mais provável para o menos provável
     const taken = new Set();
     // Quando a leitura separa as pistas de cada vale (emissor, final, saldo), cada linha usa só as suas.
-    const perVale = Array.isArray(d.vales) && d.vales.length === valeAmts.length ? d.vales : null;
+    // Os convertidos trazem as suas próprias pistas (o pagamento em si), na posição em que aparecem.
+    let perVale = Array.isArray(d.vales) && d.vales.length === valeAmts.length - convertidos.length ? d.vales : null;
+    if (convertidos.length && valePays.length === valeAmts.length) {
+      let j = 0;
+      perVale = valePays.map(p => {
+        const conv = convertidos.some(c => c.pay === p);
+        const orig = conv ? null : perVale && perVale[j++];
+        if (orig) return orig;
+        if (!conv) return undefined;
+        return { amount: p.amount, issuer: p.issuer || null, issuerRaw: p.issuer ? null : p.issuerRaw || null, holder: p.holder || null, type: p.type || null, last4: p.last4, saldo: typeof p.saldo === "number" ? (p.moment === "antes_compra" ? p.saldo - p.amount : p.saldo) : null };
+      });
+    }
     const parts = (valeAmts.length ? valeAmts : [0]).map((a, i) => {
       const v = perVale && perVale[i];
       const dRow = v ? { ...d, issuer: v.issuer || null, holder: v.holder || null, last4: v.last4 || null, last4s: v.last4 ? [v.last4] : [] } : d;
@@ -73,7 +94,7 @@
     // nesses dois casos o app não chuta um cartão: você escolhe ou cadastra.
     // - "fraco": o cartão sugerido veio só de pistas fracas (emissor, loja); fica sugerido, com a opção de cadastrar outro.
     const unknown = parts.map((pt, i) => {
-      const v = perVale ? perVale[i] : i === 0 ? { issuer: d.issuer || null, issuerRaw: d.issuerRaw || null, holder: d.holder || null, type: d.type || null, last4: d.last4 || null, saldo: saldos.length === 1 ? saldos[0] : null } : null;
+      const v = perVale && perVale[i] ? perVale[i] : !perVale && i === 0 ? { issuer: d.issuer || null, issuerRaw: d.issuerRaw || null, holder: d.holder || null, type: d.type || null, last4: d.last4 || null, saldo: saldos.length === 1 ? saldos[0] : null } : null;
       if (!v || (!v.issuer && !v.issuerRaw && !v.last4 && (v.saldo === null || v.saldo === undefined))) return null;
       if (pt.pick && pt.pick.reasons.some(r => /^final |saldo/.test(r))) return null;
       const saldo = v.saldo === undefined ? null : v.saldo;
@@ -92,7 +113,14 @@
       if (pt.pick && !pt.confident) return { ...base, kind: "fraco" };
       return null;
     }).filter(Boolean);
-    return { saldos, others, parts, unknown };
+    // Para o aviso da conferência: qual pagamento virou vale, em qual cartão, e se o cartão ficou incerto
+    const conv = convertidos.map(c => {
+      const i = valePays.indexOf(c.pay);
+      const pt = parts[i];
+      const card = pt && pt.cardId ? cards.find(x => x.id === pt.cardId) : null;
+      return { amount: c.amount, last4: c.last4, kind: c.kind, cardId: card ? card.id : "", cardName: card ? card.name : "", incerto: !pt || !pt.confident };
+    });
+    return { saldos, others, parts, unknown, payments: pays.map(({ kind, amount }) => ({ kind, amount })), convertidos: conv };
   }
 
   window.Match = { rankCards, matchReceipt, storeKeyOf, descKey };
