@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, mude VERSION para o celular baixar os arquivos atualizados.
-const VERSION = "ciclo-1.13.1";
+const VERSION = "ciclo-1.14.0";
 importScripts("js/credito.js");
 
 const FILES = [

@@ -95,7 +95,7 @@ js/credito.js         aviso do dia do crédito: cartões com crédito hoje ou no
 js/match.js           qual cartão pagou o cupom e aviso de cartão que não está na carteira
 tests/                testes automáticos da leitura de cupons e da escolha do cartão
 fonts/                fonte Outfit, embutida
-icons/                ícones do app (inclui a versão "maskable" do Android)
+icons/                ícones do app (inclui a versão "maskable" do Android). `icons/icone.svg` é a fonte de `icon-192.png` e `icon-512.png`; para refazer: `node scripts/gerar-icones.mjs`
 vendor/tesseract/     Tesseract.js 5.1.1 e o modelo de português, embutidos
 CHANGELOG.md          histórico de versões
 version.json          versão publicada (usada pelo aviso de atualização)

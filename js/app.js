@@ -14,7 +14,7 @@ import { avisoDesligar, avisoLigar, creditBatchSheet, creditSheet, pendingCredit
 import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, renderTop, renderTxArea, run, themeNow, themeSheet } from "./app/telas.js";
 
 // Versão do app (SemVer: MAJOR.MINOR.PATCH). Ao mudar, atualize também CHANGELOG.md e VERSION em sw.js.
-const APP_VERSION = "1.13.1";
+const APP_VERSION = "1.14.0";
 config.APP_VERSION = APP_VERSION;
 
 window.addEventListener("popstate", () => {
@@ -164,6 +164,18 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---------- inicialização ----------
+// Tira a tela de carregamento (#abertura, no index.html): devolve a cor da barra de cima, esmaece em 150 ms e remove.
+function fecharAbertura() {
+  const el = document.getElementById("abertura");
+  if (!el) return;
+  const claro = document.getElementById("tcClaro"), escuro = document.getElementById("tcEscuro");
+  if (claro) claro.content = "#f3f7f7";
+  if (escuro) escuro.content = "#081417";
+  el.classList.add("saindo");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) el.remove();
+  else setTimeout(() => el.remove(), 170);
+}
+
 (async () => {
   try {
     applyTheme(themeNow());
@@ -176,6 +188,7 @@ document.addEventListener("visibilitychange", () => {
     S.loaded = true;
     history.replaceState({ home: true }, "");
     render();
+    fecharAbertura();
     setTimeout(() => checkUpdate(false), 1500);
     setTimeout(driveAutomatico, 3000);
     const acao = new URLSearchParams(location.search).get("acao");
@@ -188,6 +201,7 @@ document.addEventListener("visibilitychange", () => {
   } catch (e) {
     console.error(e);
     $("view").innerHTML = `<div class="notice">Não foi possível abrir os dados do app neste navegador. Verifique se o Chrome não está em modo anônimo.</div>`;
+    fecharAbertura();
   }
 })();
 
