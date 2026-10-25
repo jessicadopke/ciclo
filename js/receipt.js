@@ -298,6 +298,11 @@
     // Sem a seção da NFC-e, mantém só um pagamento por tipo para não contar duas vezes o mesmo valor do comprovante.
     res.payments = head >= 0 ? payments : payments.filter((p, i) => payments.findIndex(q => q.kind === p.kind && q.amount === p.amount) === i);
     const vales = res.payments.filter(p => p.kind === "vale");
+    // Final de cartão no pagamento de crédito/débito, só quando a ligação é segura:
+    // um único pagamento de cartão, nenhum vale e um único final distinto no cupom.
+    const cartoes = res.payments.filter(p => p.kind === "credito" || p.kind === "debito");
+    const finaisCupom = [...new Set([...lines.join("\n").matchAll(new RegExp(`${MASK_L4}|${FINAL_L4}`, "g"))].map(m => m[1] || m[2]))];
+    if (cartoes.length === 1 && !vales.length && finaisCupom.length === 1) cartoes[0].last4 = finaisCupom[0];
     if (vales.length > 1) res.paid = vales.reduce((s, p) => s + p.amount, 0);
     // Todos os saldos impressos (um por comprovante de vale) e todos os finais de cartão
     res.balances = balCands.map(b => b.before && res.paid ? null : b.v).filter(v => v !== null);
