@@ -237,7 +237,8 @@ export async function importFile(file) {
       for (const r of data.receipts || []) { try { await IDB.put("receipts", { id: r.id, createdAt: r.createdAt, blob: await dataURLToBlob(r.data) }); } catch (e) {} }
       const meta = { ...S.meta, vault: data.meta && data.meta.vault ? data.meta.vault : null };
       await IDB.put("meta", meta, "main");
-      S.cards = data.cards; S.txs = data.txs; S.meta = meta;
+      S.meta = meta;
+      await Store.carregar({ cards: data.cards, txs: data.txs });
       S.key = null; S.plain = {}; S.plainSig = {};
     }, "Backup restaurado.");
     if (ok) { S.view = { name: "home" }; S.person = null; render(); askPersist(); }
