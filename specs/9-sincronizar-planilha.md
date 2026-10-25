@@ -110,6 +110,99 @@ Nenhuma cai em regra de bloqueio. Efeito em `DECISOES.md`: sincronização é no
 3. **Dois celulares** (10–15): buscar/mesclar, simultâneos, tela do segundo celular. Fecha os três "Pronto quando" da issue (exceto cofre).
 4. **Cofre e fotos** (16–17): senhas cifradas e mesma senha mestra; foto conforme decisão 1.
 
+## Desenho (arquiteto, 25/10/2026)
+
+Escolhida a alternativa **A** (abaixo). Vale para as 4 etapas; a etapa 1 está fechada, as etapas 2–4 ficam em linhas gerais e podem ser detalhadas pelo desenvolvedor sem mudar o formato de dados.
+
+### Alternativas comparadas
+
+| | Custo | Risco | Fica mais fácil depois |
+|---|---|---|---|
+| **A (escolhida)** Marcas de apagado no mesmo store do IndexedDB; `armazenamento.js` guarda a base completa (com marcas) e expõe em `S.cards`/`S.txs` só os visíveis; saldo derivado (`saldoBase` + lançamentos); funções puras em `js/sync.js`. | Baixo: muda `armazenamento.js`, `util.uid`, 2 funções de `telas.js`, carga em `app.js` e `importFile`. Telas e cálculos não mudam (continuam lendo `S.cards`/`S.txs`). | Baixo: sem versão nova do banco; um esquecimento não mostra apagado na tela, porque o filtro é num lugar só. | Etapas 2–3 só leem a base completa e chamam `Sync.mesclar`. |
+| B Store novo `apagados` (`indexedDB.open(DB_NAME, 2)`) e `balance` mesclado como campo comum. | Médio: migração de versão do banco, `onversionchange` com outra aba aberta. | Alto: `balance` por "último vence" perde o efeito de lançamentos simultâneos (critério 5 falha). | Pouco. |
+| C Marcas dentro de `S.cards`/`S.txs`, filtrando `!apagado` em cada tela; saldo = soma pura dos lançamentos. | Alto: ~40 pontos de leitura em 8 módulos. | Alto: filtro esquecido mostra apagado ou erra Gastos; soma pura pode mudar saldos atuais que não batem com o extrato. | Igual a A. |
+
+### Formato de dados
+
+Registros de `cards` e `txs` (IndexedDB e backup) ganham campos extras; nada é renomeado e ids antigos continuam válidos:
+- `updatedAt` (ms): "última mudança", carimbado em todo `Store.put/patch/remove`.
+- `updatedBy`: id do aparelho que fez a última mudança (`meta.sync.aparelho`).
+- `apagado: true` só nas marcas de apagado. Formato mínimo da marca: `{ id, apagado: true, updatedAt, updatedBy }` (sem nome, valor, loja, segredo).
+- Só em `cards`: `saldoBase` (centavos), gravado uma vez na migração = `balance` gravado − soma dos lançamentos do cartão (normalmente 0). Não é mexido depois.
+- `balance` passa a ser **derivado**: em memória, `balance = saldoBase + Σ delta(lançamentos visíveis do cartão)`, recalculado a cada gravação, ao carregar e após mesclar. O `balance` gravado no IndexedDB é cache e é ignorado ao carregar (exceto na migração). Lançar ou apagar lançamento **não grava mais no cartão** (senão uma edição do cartão em outro aparelho perderia para um lançamento).
+- Visíveis: cartão sem `apagado`; lançamento sem `apagado` e cujo cartão está visível. Lançamento de cartão apagado (ex.: lançado offline no outro celular depois de o cartão ser apagado) fica guardado na base, escondido.
+- `receipts` não mudam e nunca sincronizam (decisão 1, opção A). Apagar lançamento continua apagando a foto de verdade.
+- `meta.sync` (fora do backup e do Drive, como `meta.drive`): etapa 1 só cria `{ aparelho }` = 12 caracteres aleatórios `[0-9a-z]` de `crypto.getRandomValues`, gerado ao abrir se faltar. Etapas 2–3 completam: `{ aparelho, nome, url, secret, ligado, marca, fila: ["cards:<id>", "txs:<id>", ...], ultimoEnvio, ultimaBusca, ultimoErro }`. `nome` ("Celular 1/2", editável) é só rótulo; o desempate usa `aparelho`, que não se repete.
+- Etapa 4: `meta.vault` ganha `updatedAt`/`updatedBy` e viaja como registro `{ loja: "meta", id: "vault" }`.
+
+### Id seguro entre aparelhos
+
+`uid()` em `js/app/util.js`: `Date.now().toString(36)` + 16 caracteres `[0-9a-z]` de `crypto.getRandomValues` (cerca de 82 bits aleatórios; com rejeição para não enviesar). Sem id do aparelho no id (não depende da ordem de carga do `meta`). Ids antigos (14 caracteres de `Math.random`) continuam aceitos: o id é só texto opaco.
+
+### Relógio de mudanças
+
+- `updatedAt = max(Date.now(), updatedAt anterior + 1)`: uma mudança sempre vence a versão que o aparelho tinha antes, mesmo com relógio atrasado ou registro vindo de um celular com relógio adiantado.
+- A `marca` do servidor (contador do script) só serve para "o que chegou depois de N"; nunca decide conflito.
+- Ordem total para conflito (`Sync.vence(a, b)`): maior `updatedAt`; empate → maior `updatedBy` (ordem alfabética, ausente = ""); empate → maior JSON canônico (chaves ordenadas). Assim o resultado não depende de quem mescla nem da ordem. Apagado e edição usam a mesma regra (marca mais nova vence edição velha e vice-versa).
+- Etapa 3: resposta do script traz `hora`; `Sync.diferencaRelogio(horaServidor, agora)` > 5 min → aviso.
+
+### `js/sync.js` (script clássico, `window.Sync`, como `js/drive.js`)
+
+Etapa 1 (funções puras, sem rede nem IndexedDB):
+- `Sync.carimbar(novo, anterior, aparelho, agora)` → cópia com `updatedAt`/`updatedBy` pela regra acima.
+- `Sync.marcaApagado(anterior, aparelho, agora)` → marca mínima.
+- `Sync.vence(a, b)` → o vencedor (a ordem total acima).
+- `Sync.mesclar(local, remoto)` → `{ cards, txs }`; entrada `{ cards: [], txs: [] }` com **todos** os registros (inclusive marcas). Por `(loja, id)` fica `vence`; id só de um lado fica. Saída ordenada por `id`. Comutativa e idempotente (`mesclar(x, x)` = `x`, `mesclar(mesclar(a,b), b)` = `mesclar(a,b)`).
+- `Sync.visiveis({ cards, txs })` → `{ cards, txs }` só com os visíveis (regra acima).
+- `Sync.saldo(card, txs)` → `(card.saldoBase || 0) + Σ delta` dos lançamentos não apagados do cartão (reimplementa `delta` localmente: `debit` subtrai).
+- `Sync.migrar({ cards, txs })` → `{ cards, txs, mudados: [{ loja, registro }] }`: sem `updatedAt` → `updatedAt = createdAt || 0`; cartão sem `saldoBase` → `saldoBase = (balance || 0) − Σ delta` dos lançamentos não apagados. Idempotente: segunda chamada não muda nada (`mudados` vazio). Não mexe em `updatedBy`.
+- `Sync.limparMarcas(lista, agora, dias = 90)` → `{ lista, removidos: [ids] }`: tira marcas com `updatedAt` mais velho que 90 dias.
+
+Etapas 2–3 acrescentam no mesmo arquivo: `chamar` (mesmo jeito do `Drive.chamar`, mensagens "Planilha"), `envelope(loja, registro)`, `montarLotes(fila, base, max = 500)`, `tirarDaFila(fila, enviados, base)`, `diferencaRelogio`, e `gerarSegredo = Drive.gerarSegredo`.
+
+### `js/app/armazenamento.js` (etapa 1)
+
+- Base completa em memória no módulo (`export const Base = { cards: [], txs: [] }`), fora de `S` (o formato de `S` não muda; `tests/estado.test.js` continua igual).
+- `Store.carregar({ cards, txs })`: `Sync.migrar` (grava os `mudados` no IndexedDB), `Sync.limparMarcas` (apaga do IndexedDB as marcas vencidas), guarda em `Base` e chama `refazer()`. Usado em `js/app.js` (ao abrir, no lugar de `S.cards = …; S.txs = …`) e em `importFile` do `backup.js` (no lugar da atribuição direta). Também garante `meta.sync.aparelho` (via `Store.setMeta`, só se faltar).
+- `refazer()` (interno): `S.cards`/`S.txs` = `Sync.visiveis(Base)`, e `c.balance = Sync.saldo(c, Base.txs)` **no próprio objeto** (quem guardou referência ao cartão vê o saldo novo).
+- `Store.put(k, obj)` / `Store.patch(k, id, part)`: carimbam com `Sync.carimbar`, gravam, atualizam `Base` e chamam `refazer()`. Para `receipts`/`meta` nada muda (continuam por `IDB.put`/`setMeta`).
+- `Store.remove(k, id)`: grava `Sync.marcaApagado` em vez de `IDB.del`; tira dos visíveis.
+- Gancho para a etapa 2: `Store.aoMudar = null`; se for função, é chamado com `(loja, registro)` depois de cada `put/patch/remove` em `cards`/`txs`.
+- `IDB.del` continua existindo (fotos, limpeza de marcas).
+
+### Outros arquivos (etapa 1)
+
+- `js/app/telas.js`: `postTxs` só grava os lançamentos e devolve `cardById(card.id).balance`; `deleteTx` só chama `Store.remove` (sem `patch` do saldo). `deleteCard` (`cartoes.js`) não muda: já chama `Store.remove` para cada lançamento e para o cartão.
+- `js/app/backup.js`: `importFile` usa `Store.carregar`. Backup continua com `BACKUP_VERSION = 1` e sem marcas (só `S.cards`/`S.txs`, com `balance` correto em memória, então versão antiga do app restaura certo). Restaurar apaga as marcas locais (é "substituir tudo"); com sync ligado, a etapa 3 trata (critério 22).
+- `index.html`: `<script src="js/sync.js" defer></script>` depois de `js/drive.js`. `sw.js`: `"js/sync.js"` em `FILES`. `tests/carregar.js`: carregar `js/sync.js` e exportar `Sync`.
+- Volta para versão antiga do app depois da etapa 1 não é suportada (o app antigo mostraria marcas como cartões vazios). Não há caminho de "voltar versão" para quem usa, então só fica registrado.
+
+### Contrato app ↔ `planilha.gs` (fixo; implementado na etapa 2)
+
+Registro na rede (envelope): `{ loja: "cards"|"txs"|"meta", id, mudou: updatedAt, por: updatedBy, apagado: bool, dados }`. `dados` = registro inteiro, **sem `balance`** (derivado); `secret` só cifrado (etapa 4 confere por teste). Marca: `dados` = a própria marca mínima.
+
+| `acao` | Corpo extra | Resposta ok |
+|---|---|---|
+| `enviar` | `aparelho`, `registros` (até 500 e até ~5 MB) | `{ ok, aceitos: n, ignorados: n, marca, hora }` |
+| `buscar` | `desde` (0 = tudo), `limite` (padrão 500) | `{ ok, registros: [envelope + marca], marca, mais: bool, hora }` |
+| `estado` | — | `{ ok, cartoes, lancamentos, marca, hora }` (contam só os não apagados) |
+
+Erros: `{ ok:false, erro: "segredo" | "formato" | "tamanho" | "ocupado" }` (`ocupado` = `LockService` não conseguiu a trava em 20 s; o app tenta depois). O script aceita um registro só se `vence(novo, atual)` pela mesma regra (cópia de ~10 linhas em `planilha.gs`; um teste confere que as duas dão o mesmo resultado); cada linha aceita ganha `marca = ++contador`. Ignorado (mais velho) também sai da fila: a planilha já tem algo igual ou mais novo. **O script nunca apaga linhas** (marcas de apagado ficam para sempre na planilha): assim um aparelho parado por mais de 90 dias não ressuscita nada, porque o servidor recusa a versão velha e devolve a marca no `buscar`. Coluna legível "Saldo" da aba Cartões é calculada pelo script (`saldoBase` + lançamentos).
+
+### Linhas gerais das etapas 2–4
+
+- **Etapa 2:** `Store.aoMudar` põe `"loja:id"` em `meta.sync.fila` (sem repetir) quando `ligado`. Envio: `montarLotes` lê a versão atual de cada id em `Base`; após `ok`, `tirarDaFila` só remove o item cujo `updatedAt` atual ainda é o enviado (mudou durante o envio → fica). "Enviar tudo agora" põe toda a `Base` na fila. Telas em `js/app/sincronizacao.js` (novo; entra no `FILES`).
+- **Etapa 3:** `buscar desde=meta.sync.marca` em páginas até `mais:false`; converte envelopes em `{ cards, txs }`, `Sync.mesclar(Base, remoto)`, grava no IndexedDB só o que mudou (comparar com `Base` por `vence`), `refazer()`, guarda `marca`. Não reenfileira o que veio de fora. Segundo celular: `desde=0` em banco vazio; com dados, "juntar" = `mesclar` + enfileirar tudo.
+- **Etapa 4:** `meta.vault` como registro `meta/vault` com `updatedAt`; vence o mais novo e avisa se o local perdeu. Trocar senha mestra carimba todos os cartões (já acontece pelo `Store.patch` do `secret`).
+
+### Ordem de implementação da etapa 1 (testes passando a cada passo)
+
+1. `js/sync.js` com as funções puras + `index.html`, `sw.js` (`FILES`), `tests/carregar.js`. Testes: `tests/sync-mesclar.test.js` (critério 3 inteiro, mais "lançamento de cartão apagado fica escondido") e a parte pura de `tests/sync-base.test.js` (`carimbar` monotônico, `marcaApagado` mínima, `migrar` idempotente e com `saldoBase`, `saldo`, `visiveis`, `limparMarcas`, critério 5: mesclar lançamentos de dois aparelhos dá o mesmo saldo de um aparelho com todos). O app ainda não usa `Sync`.
+2. `uid()` novo em `util.js`. Teste: 10 000 ids sem repetir, formato `^[0-9a-z]{20,}$`, ids antigos de 14 caracteres continuam achados por `cardById`.
+3. `armazenamento.js`: `Base`, `Store.carregar`, carimbo, `remove` por marca, `refazer` com saldo, `meta.sync.aparelho`, `Store.aoMudar`; `app.js` e `importFile` passam a usar `Store.carregar`. Testes em `tests/sync-base.test.js` trocando `IDB.put/del/get` por falsos em memória (o objeto `IDB` é exportado): put/patch carimbam; remove deixa marca e some de `S`; carregar migra e é idempotente; backup antigo (sem `updatedAt`/`saldoBase`) carregado mantém os saldos. Neste passo `postTxs`/`deleteTx` ainda gravam `balance`, mas `refazer` recalcula e o resultado é o mesmo.
+4. `telas.js`: `postTxs`/`deleteTx` sem gravar no cartão. Testes: apagar lançamento volta o saldo; apagar cartão com lançamentos deixa marcas em todos e nada visível; Gastos/gráficos (`Graficos`/`periodStats` com `S.txs`) iguais antes e depois de uma marca.
+5. `node --test`, `node scripts/versao.mjs --check`; checklist `teste-no-celular` da etapa 1 (seção abaixo).
+
 ## Ação manual da Jéssica
 
 Sim, da etapa 2 em diante: criar uma Planilha Google nova, abrir Extensões → Apps Script, colar `apps-script/planilha.gs`, rodar `configurar()` com o código copiado do app, Implantar como App da Web (executar como eu, acesso qualquer pessoa), autorizar e copiar o link. Em cada versão nova do script, **reimplantar** ("Gerenciar implantações → Editar → Nova versão"), senão o app fala com a versão velha. O `backup.gs` do Drive não precisa ser reimplantado.
