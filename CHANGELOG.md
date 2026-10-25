@@ -10,6 +10,14 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
+## 1.14.0 — 25/10/2026
+
+### Novo
+- **Animação na abertura:** ao abrir o app, aparece o ícone do Ciclo em movimento: a bolinha laranja chega ao anel e o anel gira. Quando o app está pronto, a animação some. Ela não deixa a abertura mais lenta. Se o celular estiver com "remover animações" ligado, o ícone aparece parado.
+
+### Corrigido
+- **Borda no ícone da abertura:** o ícone do app não mostra mais uma borda estranha na tela de abertura. Para ver o ícone novo, pode ser preciso remover o atalho do Ciclo da tela inicial e instalar o app de novo.
+
 ## 1.13.1 — 25/10/2026
 
 ### Corrigido
