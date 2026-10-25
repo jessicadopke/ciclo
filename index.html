@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f3f7f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#081417" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="tcClaro" content="#f3f7f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" id="tcEscuro" content="#081417" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Ciclo: do crédito ao próximo crédito. Saldo dos cartões de vale-alimentação, refeição e multibenefício da família, com leitura de cupom fiscal e cofre de senhas.">
 <title>Ciclo</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -12,9 +12,42 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preload" href="fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>try { var t = localStorage.getItem("ciclo-tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+/* Tela de carregamento: inline para aparecer antes de styles.css e dos módulos. Petróleo fixo nos dois temas, igual à abertura do sistema. */
+#abertura { position: fixed; inset: 0; height: 100vh; height: 100dvh; z-index: 2147483647; background: #0e4f5c; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 1; transition: opacity .15s ease-out; }
+#abertura.saindo { opacity: 0; pointer-events: none; }
+#abertura svg { width: 96px; height: 96px; display: block; overflow: visible; }
+#abertura .ab-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#abertura .ab-aviso { position: absolute; left: 24px; right: 24px; bottom: 15vh; margin: 0; text-align: center; color: #cfe9e6; font: 500 15px/1.4 system-ui, sans-serif; }
+#abertura .ab-giro, #abertura .ab-bola { transform-box: view-box; transform-origin: 24px 24px; }
+#abertura .ab-giro { animation: ab-giro 1.6s linear .8s infinite; }
+#abertura .ab-bola { animation: ab-bola .8s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes ab-giro { to { transform: rotate(360deg); } }
+@keyframes ab-bola { from { transform: rotate(-300deg); opacity: 0; } 25% { opacity: 1; } to { transform: rotate(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #abertura { transition: none; }
+  #abertura .ab-giro, #abertura .ab-bola { animation: none; }
+}
+</style>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="abertura" role="status">
+  <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><g class="ab-giro"><path d="M35.3 15.5A14 14 0 1 0 38 24" fill="none" stroke="#7fe0d0" stroke-width="5.5" stroke-linecap="round"/><g class="ab-bola"><circle cx="35.6" cy="15.6" r="4.6" fill="#ffb547"/></g></g></svg>
+  <span class="ab-oculto" id="abTexto">Abrindo o Ciclo</span>
+</div>
+<script>
+// Segurança da abertura: barra de cima petróleo enquanto a tela existe; aviso se passar de 10 s. A saída (e a volta das cores) está em fecharAbertura(), em js/app.js.
+(function () {
+  try { document.getElementById("tcClaro").content = "#0e4f5c"; document.getElementById("tcEscuro").content = "#0e4f5c"; } catch (e) {}
+  setTimeout(function () {
+    var t = document.getElementById("abTexto");
+    if (!t) return;
+    t.className = "ab-aviso";
+    t.textContent = "Está demorando mais que o normal. Feche e abra o app de novo.";
+  }, 10000);
+})();
+</script>
 <header class="appbar" id="appbar">
   <div class="appbar-in">
     <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M35.3 15.5A14 14 0 1 0 38 24" fill="none" stroke="#7fe0d0" stroke-width="5.5" stroke-linecap="round"/><circle cx="35.6" cy="15.6" r="4.6" fill="#ffb547"/></svg></div><span class="brand-name" id="brandName">Ciclo</span></div>
@@ -29,7 +62,7 @@
   </div>
 </header>
 <main class="wrap" id="app">
-  <div id="view"><div class="empty">Carregando…</div></div>
+  <div id="view"></div>
 </main>
 <nav class="tabbar" id="tabbar" hidden aria-label="Navegação principal">
   <div class="tabbar-in">
