@@ -171,7 +171,9 @@ document.addEventListener("visibilitychange", () => {
     const migrated = await migrateOldDb().catch(e => { console.warn("migração", e); return false; });
     if (migrated) setTimeout(() => toast("Seus dados foram trazidos da versão anterior."), 600);
     const [cards, txs, meta] = await Promise.all([IDB.all("cards"), IDB.all("txs"), IDB.get("meta", "main")]);
-    S.cards = cards; S.txs = txs; S.meta = meta || {}; S.loaded = true;
+    S.meta = meta || {};
+    await Store.carregar({ cards, txs });
+    S.loaded = true;
     history.replaceState({ home: true }, "");
     render();
     setTimeout(() => checkUpdate(false), 1500);

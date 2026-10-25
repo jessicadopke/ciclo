@@ -18,7 +18,18 @@ export const MONTHS = ["janeiro","fevereiro","março","abril","maio","junho","ju
 
 export const brl = c => (c < 0 ? "−" : "") + "R$ " + (Math.abs(c) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
-export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+// Id novo: tempo + 16 caracteres aleatórios do sistema (sem viés), para dois aparelhos nunca repetirem.
+// Ids antigos (14 caracteres) continuam valendo: o id é só um texto.
+const ALFA = "0123456789abcdefghijklmnopqrstuvwxyz";
+export function uid() {
+  let r = "";
+  while (r.length < 16) {
+    for (const b of crypto.getRandomValues(new Uint8Array(32))) {
+      if (b < 252 && r.length < 16) r += ALFA[b % 36]; // 252 = 36 x 7: descarta o resto para não enviesar
+    }
+  }
+  return Date.now().toString(36) + r;
+}
 const pad = n => String(n).padStart(2, "0");
 export const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
