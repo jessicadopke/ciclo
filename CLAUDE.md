@@ -35,12 +35,13 @@ Arquivo novo em `js/` ou em `js/app/` também entra na lista `FILES` do `sw.js`,
 
 **Fonte da verdade:** as issues deste repositório e o quadro **Meus Apps** (https://github.com/users/jessicadopke/projects/1). O `BACKLOG.md` é o registro histórico até 22/10/2026; não acrescente itens nele.
 
-**Papéis:** a sessão principal é o *gerente de produto* deste repositório. Ela não programa itens M/G: delega aos agentes em `.claude/agents/` e só lê os relatórios curtos deles.
+**Papéis:** a sessão principal é o *gerente de produto* deste repositório. Ela não programa itens M/G: delega aos agentes em `.claude/agents/` (especificador, arquiteto, designer, desenvolvedor, verificador, publicador) e só lê os relatórios curtos deles.
 
 | Tamanho | Caminho |
 |---|---|
 | P | desenvolvedor (direto da issue) → verificador |
 | M / G | especificador → arquiteto (só se a spec pedir) → desenvolvedor → verificador |
+| Com tela nova ou mudança visual (P, M ou G) | … → **designer** (só se a spec ou a issue pedir; escreve só em `specs/` e `prototipos/`, nunca em `js/`, `styles.css`, `index.html`, `sw.js` ou `tests/`) → desenvolvedor → verificador (confere também a fidelidade ao protótipo) |
 
 Depois do APROVADO do verificador e dos testes passando, o gerente abre o pedido `item/<n>-… → dev` e **faz o merge sozinho**. Se o verificador DEVOLVER, o desenvolvedor corrige uma vez; na segunda devolução, a issue vai para ⏸ com o motivo.
 
