@@ -19,6 +19,13 @@
 #abertura svg { width: 96px; height: 96px; display: block; overflow: visible; }
 #abertura .ab-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 #abertura .ab-aviso { position: absolute; left: 24px; right: 24px; bottom: 15vh; margin: 0; text-align: center; color: #cfe9e6; font: 500 15px/1.4 system-ui, sans-serif; }
+#abertura.falha .ab-giro, #abertura.falha .ab-bola { animation: none; }
+#abertura.falha svg { margin-bottom: 120px; }
+#abertura .ab-socorro { position: absolute; left: 24px; right: 24px; bottom: 6vh; display: flex; flex-direction: column; gap: 10px; align-items: stretch; max-width: 360px; margin: 0 auto; }
+#abertura .ab-socorro[hidden] { display: none; }
+#abertura .ab-socorro button { min-height: 44px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #7fe0d0; background: transparent; color: #ffffff; font: 600 15px/1.2 system-ui, sans-serif; }
+#abertura .ab-socorro button.ab-main { background: #7fe0d0; color: #08323a; }
+#abertura.falha .ab-aviso { bottom: calc(6vh + 190px); }
 #abertura .ab-giro, #abertura .ab-bola { transform-box: view-box; transform-origin: 24px 24px; }
 #abertura .ab-giro { animation: ab-giro 1.6s linear .8s infinite; }
 #abertura .ab-bola { animation: ab-bola .8s cubic-bezier(.2, .7, .2, 1) both; }
@@ -35,17 +42,96 @@
 <div id="abertura" role="status">
   <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><g class="ab-giro"><path d="M35.3 15.5A14 14 0 1 0 38 24" fill="none" stroke="#7fe0d0" stroke-width="5.5" stroke-linecap="round"/><g class="ab-bola"><circle cx="35.6" cy="15.6" r="4.6" fill="#ffb547"/></g></g></svg>
   <span class="ab-oculto" id="abTexto">Abrindo o Ciclo</span>
+  <div class="ab-socorro" id="abSocorro" hidden>
+    <button type="button" class="ab-main" id="abTentar">Tentar de novo</button>
+    <button type="button" id="abArquivos">Atualizar os arquivos do app</button>
+    <button type="button" id="abCopia">Salvar uma cópia dos dados</button>
+  </div>
 </div>
 <script>
-// Segurança da abertura: barra de cima petróleo enquanto a tela existe; aviso se passar de 10 s. A saída (e a volta das cores) está em fecharAbertura(), em js/app.js.
+// Segurança da abertura (script clássico: não depende dos módulos, que podem ser justamente o que falhou).
+// Barra de cima petróleo enquanto a tela existe. Se o app não abrir em 10 s, ou se um arquivo/módulo der erro,
+// mostra a mensagem e os botões de socorro. A saída normal (e a volta das cores) está em fecharAbertura(), em js/app.js.
+// NUNCA apaga dados: "Atualizar os arquivos" mexe só em cópias do programa e no service worker; a cópia dos dados só lê.
 (function () {
   try { document.getElementById("tcClaro").content = "#0e4f5c"; document.getElementById("tcEscuro").content = "#0e4f5c"; } catch (e) {}
-  setTimeout(function () {
-    var t = document.getElementById("abTexto");
-    if (!t) return;
+  var falhou = false;
+  function el(id) { return document.getElementById(id); }
+  function mostrar(motivo) {
+    var ab = el("abertura"), t = el("abTexto");
+    if (!ab || !t) return;
+    falhou = true;
+    ab.className = "falha";
     t.className = "ab-aviso";
-    t.textContent = "Está demorando mais que o normal. Feche e abra o app de novo.";
-  }, 10000);
+    t.textContent = motivo === "dados"
+      ? "Não consegui abrir seus dados. Feche outras janelas do Ciclo e toque em Tentar de novo. Seus dados não foram apagados."
+      : "O Ciclo não conseguiu carregar todos os arquivos. Seus dados estão guardados no celular e não foram apagados.";
+    el("abSocorro").hidden = false;
+  }
+  window.__cicloFalha = mostrar;
+  function motivoAgora() { return window.__cicloIniciou ? "dados" : "arquivos"; }
+  setTimeout(function () { if (el("abertura")) mostrar(motivoAgora()); }, 10000);
+  // Arquivo que não carregou ou módulo com erro: antes de o código iniciar, não adianta esperar os 10 s.
+  window.addEventListener("error", function () { if (!window.__cicloIniciou && el("abertura") && !falhou) mostrar("arquivos"); }, true);
+  window.addEventListener("unhandledrejection", function () { if (!window.__cicloIniciou && el("abertura") && !falhou) mostrar("arquivos"); });
+
+  el("abTentar").addEventListener("click", function () { location.reload(); });
+
+  // Só cópias do programa e service worker. Não toca em IndexedDB nem em localStorage.
+  el("abArquivos").addEventListener("click", function () {
+    var b = el("abArquivos"); b.disabled = true; b.textContent = "Atualizando…";
+    var regs = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
+    regs.then(function (lista) { return Promise.all(lista.map(function (r) { return r.unregister(); })); })
+      .then(function () { return window.caches ? caches.keys() : []; })
+      .then(function (nomes) { return Promise.all(nomes.map(function (n) { return caches.delete(n); })); })
+      .catch(function () {})
+      .then(function () { location.reload(); });
+  });
+
+  // Só lê o banco "ciclo" (sem criar nem mudar nada) e baixa um arquivo no mesmo formato do backup do app.
+  el("abCopia").addEventListener("click", function () {
+    var b = el("abCopia"), t = el("abTexto");
+    function falha() {
+      b.disabled = false; b.textContent = "Salvar uma cópia dos dados";
+      t.textContent = "Não consegui ler os dados agora, mas eles continuam guardados no celular. Não desinstale o app nem limpe os dados do Chrome. Feche outras janelas do Ciclo e toque em Tentar de novo.";
+    }
+    b.disabled = true; b.textContent = "Salvando…";
+    var fim = false, timer = setTimeout(function () { if (!fim) { fim = true; falha(); } }, 8000);
+    function acabou(ok, dados) {
+      if (fim) return; fim = true; clearTimeout(timer);
+      if (!ok) return falha();
+      try {
+        var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
+        var nome = "ciclo-copia-" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + ".json";
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(dados)], { type: "application/json" })); a.download = nome;
+        document.body.appendChild(a); a.click(); a.remove();
+        b.disabled = false; b.textContent = "Salvar uma cópia dos dados";
+        t.textContent = "Cópia salva em Downloads (sem as fotos dos cupons). Seus dados continuam no celular.";
+      } catch (e) { falha(); }
+    }
+    try {
+      var r = indexedDB.open("ciclo");
+      r.onupgradeneeded = function () { r.transaction.abort(); };
+      r.onerror = r.onblocked = function () { acabou(false); };
+      r.onsuccess = function () {
+        var db = r.result;
+        try {
+          var nomes = ["cards", "txs", "meta"], saida = {}, falta = nomes.length;
+          nomes.forEach(function (n) {
+            if (!db.objectStoreNames.contains(n)) { saida[n] = n === "meta" ? null : []; if (--falta === 0) pronto(); return; }
+            var q = n === "meta" ? db.transaction(n).objectStore(n).get("main") : db.transaction(n).objectStore(n).getAll();
+            q.onsuccess = function () { saida[n] = q.result || (n === "meta" ? null : []); if (--falta === 0) pronto(); };
+            q.onerror = function () { db.close(); acabou(false); };
+          });
+          function pronto() {
+            db.close();
+            acabou(true, { app: "ciclo", version: 1, exportedAt: new Date().toISOString(), cards: saida.cards, txs: saida.txs, meta: { vault: (saida.meta && saida.meta.vault) || null }, receipts: [] });
+          }
+        } catch (e) { db.close(); acabou(false); }
+      };
+    } catch (e) { acabou(false); }
+  });
 })();
 </script>
 <header class="appbar" id="appbar">

@@ -13,6 +13,9 @@ import { aboutSheet, backupSheet, driveAutomatico, driveSheet, exportarPlanilha,
 import { avisoDesligar, avisoLigar, creditBatchSheet, creditSheet, pendingCredits, registerCredit } from "./app/inicio.js";
 import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, renderTop, renderTxArea, run, themeNow, themeSheet } from "./app/telas.js";
 
+// A abertura (index.html) usa isto para saber que o código carregou: se não aparecer, o problema são os arquivos.
+window.__cicloIniciou = true;
+
 // Versão do app (SemVer: MAJOR.MINOR.PATCH). Ao mudar, atualize também CHANGELOG.md e VERSION em sw.js.
 const APP_VERSION = "1.14.0";
 config.APP_VERSION = APP_VERSION;
@@ -200,8 +203,9 @@ function fecharAbertura() {
     }
   } catch (e) {
     console.error(e);
-    $("view").innerHTML = `<div class="notice">Não foi possível abrir os dados do app neste navegador. Verifique se o Chrome não está em modo anônimo.</div>`;
-    fecharAbertura();
+    $("view").innerHTML = `<div class="notice">Não consegui abrir seus dados. Feche outras janelas do Ciclo e abra de novo. Seus dados não foram apagados. Se estiver em aba anônima, abra numa aba normal.</div>`;
+    // A abertura fica na tela com os botões de socorro; se ela não souber mostrar, sai.
+    if (typeof window.__cicloFalha === "function") window.__cicloFalha("dados"); else fecharAbertura();
   }
 })();
 

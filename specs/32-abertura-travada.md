@@ -2,6 +2,13 @@
 
 Aviso: o corpo da issue não pôde ser lido pela ferramenta do especificador (sem acesso ao MCP do GitHub nesta execução). Esta spec parte do título ("App fica preso na tela de abertura") e do código. O desenvolvedor deve ler a issue (`--comments`) e, se houver sintoma que contradiga a causa abaixo, registrar na issue antes de seguir.
 
+## Correção da spec após ler a issue (desenvolvedor)
+Pontos da issue que a spec original não cobria, agora incluídos e implementados:
+- A mensagem da abertura tem **dois botões** da issue: "Tentar de novo" (recarrega) e "Atualizar os arquivos do app" (limpa só service worker e caches; nunca IndexedDB nem localStorage). O nome "Atualizar arquivos" dos critérios abaixo vale como esse segundo botão.
+- `error` e `unhandledrejection` antes do app iniciar trocam a abertura na hora (sem esperar os 10 s); o `catch` da inicialização também (`window.__cicloFalha`), mantendo os botões.
+- Caminho de socorro para os dados: botão "Salvar uma cópia dos dados" na abertura, que só lê o IndexedDB (prazo de 8 s) e baixa JSON no formato do backup (sem fotos). Se não conseguir ler, a mensagem diz que os dados continuam guardados.
+- Reprodução (cache misto 1.12.0 para 1.14.0): não dá para reproduzir em navegador aqui; o teste `tests/abertura-travada.test.js` simula o service worker e prova que o conjunto é servido só da cópia da versão (sem ir à internet), e que arquivo ausente vira erro explícito.
+
 ## Objetivo
 Quando o Ciclo não consegue abrir, a Jéssica não pode ficar olhando o anel girando para sempre. Ou o app abre, ou aparece uma mensagem clara com um botão "Atualizar arquivos" que conserta sozinho, sem tocar em cartões, extratos, fotos e senhas.
 

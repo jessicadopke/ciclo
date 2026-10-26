@@ -29,14 +29,28 @@ export async function checkUpdate(manual) {
     return null;
   }
 }
+// Espera o service worker novo (se houver) terminar de instalar e assumir; desiste em 15 s.
+function esperarNovo(reg) {
+  const w = reg.installing || reg.waiting;
+  if (!w || w.state === "activated") return Promise.resolve();
+  return new Promise(res => {
+    const t = setTimeout(res, 15000);
+    w.addEventListener("statechange", () => { if (w.state === "activated" || w.state === "redundant") { clearTimeout(t); res(); } });
+  });
+}
 export async function applyUpdate() {
   if (!navigator.onLine) { toast("Sem internet. Conecte-se para atualizar."); return; }
   toast("Atualizando…");
   try {
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
-    if (reg) await reg.update().catch(() => {});
+    if (reg) { await reg.update().catch(() => {}); await esperarNovo(reg); }
     // Só a cópia offline do programa; cartões, extratos e senhas ficam no IndexedDB e não são tocados.
-    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+    // Só apaga as cópias antigas se a da versão nova já existe (o nome é "ciclo-" + versão, como em sw.js).
+    if (window.caches) {
+      const manter = "ciclo-" + (S.updateAvailable || config.APP_VERSION);
+      const nomes = await caches.keys();
+      if (nomes.includes(manter)) for (const k of nomes) if (k !== manter) await caches.delete(k);
+    }
   } catch (e) { console.warn("atualização", e); }
   location.reload();
 }
