@@ -10,6 +10,13 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
+## 1.14.1 — 26/10/2026
+
+### Corrigido
+- **App preso na tela de abertura:** em alguns casos, o Ciclo ficava na tela de abertura com o anel girando para sempre. Agora, se o app não abrir em cerca de 10 segundos, aparece uma mensagem com o botão **Atualizar arquivos**. Esse botão só troca os arquivos do app: cartões, extratos, fotos e senhas continuam como estavam.
+- **Dados que demoram para abrir:** se o app não conseguir abrir os seus dados (por exemplo, quando o Ciclo está aberto em outra janela), aparece o aviso "Feche outras janelas do Ciclo e abra de novo". Seus dados não são apagados.
+- **Atualização mais segura:** depois de atualizar, a página, os estilos e os arquivos do app vêm todos da mesma versão, para não misturar arquivos antigos e novos.
+
 ## 1.14.0 — 25/10/2026
 
 ### Novo

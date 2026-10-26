@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, mude VERSION para o celular baixar os arquivos atualizados.
-const VERSION = "ciclo-1.14.0";
+const VERSION = "ciclo-1.14.1";
 importScripts("js/credito.js");
 
 const FILES = [
@@ -47,7 +47,8 @@ const FILES = [
 ];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: "reload" ignora a cópia do navegador, para o conjunto novo vir inteiro e da mesma versão.
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -58,24 +59,19 @@ self.addEventListener("activate", e => {
   );
 });
 
-// Leitor de cupom e ícones: arquivos grandes que não mudam, sempre da cópia guardada.
-// Página, estilos e código: da internet quando houver (assim as atualizações chegam), senão da cópia guardada.
+// Tudo do app vem da cópia da VERSION atual, pré-carregada inteira no install: página, estilos e código nunca se misturam
+// entre versões. A versão nova chega com o sw.js novo e vale na abertura seguinte. O que não está na lista (ex.: version.json) vem da internet.
+// Se não estiver na cópia nem na internet, a resposta é erro explícito (e não "nada").
 self.addEventListener("fetch", e => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== "GET" || url.origin !== location.origin) return;
-  if (/\/(vendor|icons|fonts)\//.test(url.pathname)) {
-    e.respondWith(caches.match(req, { ignoreSearch: true }).then(r => r || fetch(req)));
-    return;
-  }
   const key = req.mode === "navigate" ? "index.html" : req;
   e.respondWith(
-    fetch(req, { cache: "no-cache" })
-      .then(res => {
-        if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(key, copy)); }
-        return res;
-      })
-      .catch(() => caches.match(key, { ignoreSearch: true }))
+    caches.open(VERSION)
+      .then(c => c.match(key, { ignoreSearch: true }))
+      .then(r => r || fetch(req).catch(() => Response.error()))
+      .catch(() => fetch(req).catch(() => Response.error()))
   );
 });
 

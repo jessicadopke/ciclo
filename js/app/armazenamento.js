@@ -4,24 +4,33 @@ import { S } from "./estado.js";
 // ---------- armazenamento no aparelho (IndexedDB) ----------
 const DB_NAME = "ciclo";
 const OLD_DB_NAME = "carteira-vales"; // nome usado até a 1.4.0
+// Prazo (ms) para o Chrome abrir um banco. Se estourar, a abertura mostra o aviso em vez de ficar girando. Os testes encurtam.
+export const PRAZO = { abrir: 8000 };
+// Abre um banco com prazo e aviso de "bloqueado" (outra janela segurando). Nunca apaga nem muda versão.
+// Se a abertura terminar depois do prazo, a conexão é fechada para não ficar pendurada.
+function abrirBanco(nome, versao, aoAtualizar) {
+  return new Promise((res, rej) => {
+    let fim = false;
+    const acaba = (f, v) => { if (fim) return; fim = true; clearTimeout(t); f(v); };
+    const t = setTimeout(() => acaba(rej, new Error("O banco " + nome + " não respondeu a tempo.")), PRAZO.abrir);
+    let r;
+    try { r = versao ? indexedDB.open(nome, versao) : indexedDB.open(nome); } catch (e) { return acaba(rej, e); }
+    if (aoAtualizar) r.onupgradeneeded = () => aoAtualizar(r.result);
+    r.onblocked = () => acaba(rej, new Error("O banco " + nome + " está bloqueado por outra janela."));
+    r.onsuccess = () => { if (fim) { try { r.result.close(); } catch (e) {} return; } acaba(res, r.result); };
+    r.onerror = () => acaba(rej, r.error || new Error("Erro ao abrir o banco " + nome + "."));
+  });
+}
 export const IDB = {
   db: null,
-  open() {
-    return new Promise((res, rej) => {
-      const r = indexedDB.open(DB_NAME, 1);
-      r.onupgradeneeded = () => {
-        const db = r.result;
-        for (const s of ["cards", "txs", "receipts"]) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: "id" });
-        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
-      };
-      r.onsuccess = () => {
-        IDB.db = r.result;
-        // Outra aba ou atualização precisa do banco: solta a conexão e recarrega, em vez de travar as duas.
-        IDB.db.onversionchange = () => { IDB.db.close(); location.reload(); };
-        res();
-      };
-      r.onerror = () => rej(r.error);
+  async open() {
+    const db = await abrirBanco(DB_NAME, 1, db => {
+      for (const s of ["cards", "txs", "receipts"]) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: "id" });
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
     });
+    IDB.db = db;
+    // Outra aba ou atualização precisa do banco: solta a conexão e recarrega, em vez de travar as duas.
+    db.onversionchange = () => { db.close(); location.reload(); };
   },
   req(store, mode, fn) {
     return new Promise((res, rej) => {
@@ -41,11 +50,11 @@ export const IDB = {
 // Até a 1.4.0 o banco se chamava "carteira-vales". Se ele existir e o novo estiver vazio, copia tudo e apaga o antigo.
 export async function migrateOldDb() {
   if (!indexedDB.databases) return false;
-  const list = await indexedDB.databases().catch(() => []);
+  const list = await Promise.race([indexedDB.databases().catch(() => []), new Promise(res => setTimeout(() => res([]), PRAZO.abrir))]);
   if (!list.some(d => d.name === OLD_DB_NAME)) return false;
   const [cards, meta] = await Promise.all([IDB.all("cards"), IDB.get("meta", "main")]);
   if (cards.length || meta) return false;
-  const old = await new Promise((res, rej) => { const r = indexedDB.open(OLD_DB_NAME); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const old = await abrirBanco(OLD_DB_NAME, 0, null);
   const read = (s, k) => new Promise(res => {
     if (!old.objectStoreNames.contains(s)) return res(k ? undefined : []);
     const q = k ? old.transaction(s).objectStore(s).get(k) : old.transaction(s).objectStore(s).getAll();
