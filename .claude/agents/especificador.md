@@ -15,6 +15,7 @@ Você escreve a especificação de UMA issue deste repositório. Não escreve c�
    - **Fora do escopo**
    - **Decisões em aberto**: para cada uma, opções, a recomendada e o motivo. Classifique: *com padrão* (o desenvolvedor segue a recomendada) ou *bloqueio* (só se cair numa regra de bloqueio do `CLAUDE.md`).
    - **Precisa de arquiteto?** sim/não e por quê (sim só se mudar armazenamento, formato de dados, estrutura de módulos ou contrato entre sistemas).
+   - **Precisa de designer?** sim/não e por quê (sim se criar tela nova ou mudar o visual ou o fluxo do app; o designer entrega `specs/<n>-design.md` e um protótipo em `prototipos/` antes do desenvolvedor).
    - **Teste no celular / no PC** (o que só a Jéssica pode conferir, se houver)
 4. A spec deve bastar sozinha: o desenvolvedor não terá esta conversa.
 
