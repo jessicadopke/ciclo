@@ -106,7 +106,7 @@ test("js/app.js fecha a abertura depois do render() e no catch, sem tempo mínim
 });
 
 test("script inline de segurança existe", () => {
-  assert.match(html, /Está demorando mais que o normal\. Feche e abra o app de novo\./);
+  assert.match(html, /O Ciclo não conseguiu carregar todos os arquivos/);
   assert.match(html, /10000\)/);
 });
 
