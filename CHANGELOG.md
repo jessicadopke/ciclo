@@ -10,10 +10,10 @@ O app segue o Versionamento Semântico (`MAJOR.MINOR.PATCH`):
 
 A versão em uso aparece em **Ajustes**, no rodapé.
 
-## Não publicado
+## 1.15.0 — 29/10/2026
 
 ### Novo
-- **Sincronizar com a Planilha (primeira parte):** em **Ajustes → Sincronizar com a Planilha** você liga uma cópia dos cartões e lançamentos numa Planilha Google sua, para consultar no computador. O app grava primeiro no celular; sem internet, guarda o que falta e envia quando a conexão voltar. Há **Testar conexão** e **Enviar tudo agora**, e a tela mostra a última sincronização e quantos itens faltam enviar. Fotos de cupons e a senha mestra nunca vão; as senhas do cofre vão só cifradas. Desligar não apaga nada. É preciso fazer uma vez a configuração no computador (passo a passo no começo de `apps-script/planilha.gs` e no README). Ainda não traz lançamentos de outro celular para este: isso vem numa próxima versão.
+- **Sincronizar com a Planilha:** em **Ajustes → Sincronizar com a Planilha** você pode enviar seus cartões e lançamentos para uma Planilha Google sua, para consultar no computador. Sem internet, o app guarda o que falta enviar e manda quando a conexão voltar. Tudo é opcional: vem desligado e só começa a funcionar depois que você colar o link da sua Planilha. As senhas do cofre saem só cifradas, e as fotos dos cupons continuam só no aparelho. Buscar lançamentos de outro celular e restaurar backup com sincronização ficam para uma próxima versão.
 
 ## 1.14.1 — 26/10/2026
 

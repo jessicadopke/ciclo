@@ -18,7 +18,7 @@ import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, r
 window.__cicloIniciou = true;
 
 // Versão do app (SemVer: MAJOR.MINOR.PATCH). Ao mudar, atualize também CHANGELOG.md e VERSION em sw.js.
-const APP_VERSION = "1.14.1";
+const APP_VERSION = "1.15.0";
 config.APP_VERSION = APP_VERSION;
 
 window.addEventListener("popstate", () => {
