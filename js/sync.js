@@ -1,4 +1,4 @@
-// Base da sincronização com a Planilha (etapa 1: só funções puras, sem rede e sem banco).
+// Sincronização com a Planilha. Etapa 1: funções puras (sem rede e sem banco). Etapa 2: envelope, lotes, fila e chamada ao script.
 // Mesmo estilo do drive.js: script clássico que se pendura em `window.Sync`.
 // Registros de `cards` e `txs` carregam `updatedAt` (última mudança), `updatedBy` (aparelho) e, quando apagados,
 // `apagado: true` (marca mínima). Veja specs/9-sincronizar-planilha.md, seção "Desenho".
@@ -102,5 +102,83 @@
     return { lista: sobra, removidos };
   }
 
-  window.Sync = { carimbar, marcaApagado, vence, mesclar, visiveis, saldo, migrar, limparMarcas, canonico };
+  // ---------- etapa 2: enviar para a Planilha (contrato em specs/9-sincronizar-planilha.md) ----------
+  const MAX_LOTE = 500;
+  const MAX_BYTES_LOTE = 4 * 1024 * 1024;
+  const ERROS = {
+    segredo: "O código secreto não confere com o do script. Copie o código do app e rode “configurar” de novo no script.",
+    tamanho: "O envio ficou grande demais para a Planilha. Tente de novo.",
+    formato: "O script não entendeu o pedido. Confira se colou a versão mais nova do script e se reimplantou.",
+    ocupado: "A Planilha está ocupada. Tente de novo em instantes.",
+    inesperado: "O script da Planilha deu erro. Tente de novo em instantes.",
+  };
+
+  // Registro como viaja na rede. Sem `balance` (é derivado). `secret` já é texto cifrado; fotos (`receipts`) nunca entram.
+  function envelope(loja, registro) {
+    const dados = { ...registro };
+    delete dados.balance;
+    return { loja, id: registro.id, mudou: registro.updatedAt || 0, por: registro.updatedBy || "", apagado: !!registro.apagado, dados };
+  }
+
+  const achar = (base, loja, id) => ((base && base[loja]) || []).find(r => r.id === id);
+  const partir = item => { const i = item.indexOf(":"); return [item.slice(0, i), item.slice(i + 1)]; };
+
+  // Fila de "loja:id" -> lotes de envelopes (até `max` registros e ~4 MB), com a versão atual de cada id na base.
+  // Ids que não existem mais na base são pulados.
+  function montarLotes(fila, base, max = MAX_LOTE) {
+    const lotes = [];
+    let atual = [], bytes = 0;
+    for (const item of new Set(fila || [])) {
+      const [loja, id] = partir(item);
+      if (!LOJAS.includes(loja)) continue;
+      const r = achar(base, loja, id);
+      if (!r) continue;
+      const e = envelope(loja, r);
+      const tam = JSON.stringify(e).length;
+      if (atual.length && (atual.length >= max || bytes + tam > MAX_BYTES_LOTE)) { lotes.push(atual); atual = []; bytes = 0; }
+      atual.push(e); bytes += tam;
+    }
+    if (atual.length) lotes.push(atual);
+    return lotes;
+  }
+
+  // Depois de um envio ok: tira da fila o que foi enviado, mas só se o registro ainda está na versão enviada
+  // (se mudou durante o envio, fica para o próximo). Itens cujo registro não existe mais também saem.
+  function tirarDaFila(fila, enviados, base) {
+    const mandado = new Map((enviados || []).map(e => [e.loja + ":" + e.id, e.mudou]));
+    const vistos = new Set();
+    return (fila || []).filter(item => {
+      if (vistos.has(item)) return false;
+      vistos.add(item);
+      const [loja, id] = partir(item);
+      const r = LOJAS.includes(loja) ? achar(base, loja, id) : null;
+      if (!r) return false;
+      return !(mandado.has(item) && mandado.get(item) === (r.updatedAt || 0));
+    });
+  }
+
+  // Chama o script da Planilha. Devolve o JSON de sucesso; em qualquer falha lança Error com texto em português.
+  async function chamar(config, corpo) {
+    if (!config || !config.url || !config.secret) throw new Error("Falta o link da Planilha ou o código secreto.");
+    let resp, json;
+    try {
+      // Sem cabeçalho Content-Type: vira text/plain e o navegador não faz a pré-verificação (CORS).
+      resp = await fetch(config.url, { method: "POST", body: JSON.stringify({ ...corpo, segredo: config.secret }), redirect: "follow" });
+    } catch (e) {
+      throw new Error("Sem conexão com a Planilha. Confira a internet e o link do script.");
+    }
+    try { json = await resp.json(); }
+    catch (e) { throw new Error("O link não respondeu como o script do Ciclo. Confira o link e se o acesso é “Qualquer pessoa”."); }
+    if (!json || json.ok !== true) {
+      const cod = json && json.erro;
+      const err = new Error(ERROS[cod] || "A Planilha recusou o pedido.");
+      err.codigo = cod || "inesperado";
+      throw err;
+    }
+    return json;
+  }
+
+  const gerarSegredo = () => window.Drive.gerarSegredo();
+
+  window.Sync = { carimbar, marcaApagado, vence, mesclar, visiveis, saldo, migrar, limparMarcas, canonico, envelope, montarLotes, tirarDaFila, chamar, gerarSegredo, MAX_LOTE };
 })();

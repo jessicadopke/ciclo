@@ -24,6 +24,7 @@ const FILES = [
   "js/app/cupom.js",
   "js/app/conferencia.js",
   "js/app/backup.js",
+  "js/app/sincronizacao.js",
   "js/app/inicio.js",
   "js/app/telas.js",
   "js/issuers.js",

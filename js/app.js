@@ -10,6 +10,7 @@ import { changeMasterSheet, lockVault, secretsSheet, touchVault, vaultSheet } fr
 import { adjustSheet, cardSheet, deleteCard, groupOpen, layoutNow, renderCardArea } from "./app/cartoes.js";
 import { openCamera, openGallery, receiptSheet, startScan } from "./app/cupom.js";
 import { aboutSheet, backupSheet, driveAutomatico, driveSheet, exportarPlanilha, importFile, photosSheet, restaurarDoDrive, salvarNoDrive } from "./app/backup.js";
+import { iniciarSync, syncSheet } from "./app/sincronizacao.js";
 import { avisoDesligar, avisoLigar, creditBatchSheet, creditSheet, pendingCredits, registerCredit } from "./app/inicio.js";
 import { actionSheet, applyTheme, deleteTx, goTab, navigate, openCard, render, renderTop, renderTxArea, run, themeNow, themeSheet } from "./app/telas.js";
 
@@ -122,6 +123,7 @@ document.addEventListener("click", async e => {
     case "m-backup": backupSheet(); break;
     case "export-csv": exportarPlanilha(); break;
     case "m-drive": driveSheet(); break;
+    case "m-sync": syncSheet(); break;
     case "drive-save": salvarNoDrive(); break;
     case "drive-restore": restaurarDoDrive(); break;
     case "m-photos": photosSheet(); break;
@@ -194,6 +196,7 @@ function fecharAbertura() {
     fecharAbertura();
     setTimeout(() => checkUpdate(false), 1500);
     setTimeout(driveAutomatico, 3000);
+    iniciarSync();
     const acao = new URLSearchParams(location.search).get("acao");
     if (acao && S.cards.length) {
       history.replaceState({ home: true }, "", location.pathname);
