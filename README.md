@@ -29,11 +29,15 @@ Ciclo controla o saldo dos cartões de vale-alimentação, vale-refeição e mul
 
 ## Onde ficam os dados
 
-Tudo fica **só no celular** (IndexedDB do navegador): cartões, extratos, fotos e senhas. Este site entrega apenas o programa, e nenhum dado pessoal passa por aqui. As únicas exceções são opcionais e só valem se você ligar: a leitura com o Gemini (as fotos de cupons e cartões vão para o Google) e o backup no Drive (uma cópia dos dados vai para o seu Google Drive). Por isso:
+Tudo fica **só no celular** (IndexedDB do navegador): cartões, extratos, fotos e senhas. Este site entrega apenas o programa, e nenhum dado pessoal passa por aqui. As únicas exceções são opcionais e só valem se você ligar: a leitura com o Gemini (as fotos de cupons e cartões vão para o Google), o backup no Drive (uma cópia dos dados vai para o seu Google Drive) e a Planilha (veja abaixo). Se você ligar a Planilha, os lançamentos, cartões (sem número completo) e as senhas **cifradas** também ficam na sua Planilha Google; fotos de cupons e a senha mestra nunca saem do celular. Por isso:
 
 - **Faça backup** em **Ajustes → Fazer backup** e guarde o arquivo, por exemplo no Google Drive.
 - Para trocar de celular, restaure o backup em **Ajustes → Restaurar backup**.
 - Se esquecer a senha mestra do cofre, as senhas guardadas não podem ser recuperadas.
+
+### Planilha Google (opcional)
+
+Em **Ajustes → Sincronizar com a Planilha** o Ciclo manda uma cópia dos cartões e lançamentos para uma Planilha Google sua (abas **Cartões**, **Lançamentos** e **Cofre**, esta só com texto cifrado). O celular continua sendo a cópia principal: o app grava nele primeiro e, sem internet, guarda o que falta numa fila e envia quando a conexão voltar. A Planilha é só para consultar; o script nunca apaga linhas (o que você apaga no app aparece marcado como apagado). Para ligar, uma vez, no computador: crie a Planilha, abra **Extensões → Apps Script**, cole `apps-script/planilha.gs` (o passo a passo está no começo do arquivo), rode `configurar` com o código copiado do app, implante como **App da Web** (qualquer pessoa) e cole o link no app. Quando o `planilha.gs` mudar numa versão nova, cole de novo e reimplante com "Nova versão". O link e o código ficam só no celular, fora do backup e do Drive.
 
 ### Backup automático no Drive (opcional)
 
@@ -83,12 +87,13 @@ js/app.js             entrada do app: versão, eventos gerais e inicialização 
 js/app/               o resto do app, um módulo ES por assunto (sem etapa de montagem):
                         base (só importam outra base): util, estado, cripto, periodos, armazenamento
                         telas e ações: telas, folhas, inicio, cartoes, cofre, cupom, conferencia, pagamento,
-                        backup, atualizacao, gemini-ui
+                        backup, sincronizacao, atualizacao, gemini-ui
 js/recorte.js         recorte automático da foto do cupom (acha o papel e endireita; sem tela, com testes)
 js/receipt.js         leitura do cupom no celular (OCR) e interpretação do texto
 js/gemini.js          leitura de cupons e cartões pelo Gemini (opcional)
 js/drive.js           backup no Google Drive (opcional): montagem do backup, regras de quando salvar e chamada ao script
-apps-script/          script que a usuária cola no Google Apps Script (não é usado pelo app)
+js/sync.js            sincronização com a Planilha Google (opcional): regras de mesclagem, fila de envio e chamada ao script
+apps-script/          scripts que a usuária cola no Google Apps Script: backup.gs (Drive) e planilha.gs (Planilha); não são usados pelo app
 js/issuers.js         emissores de cartão (nome, cor, sigla e como reconhecer): um emissor novo entra só aqui
 js/graficos.js        gráficos de gastos por categoria, loja e titular (SVG, sem biblioteca)
 js/credito.js         aviso do dia do crédito: cartões com crédito hoje ou nos próximos dias, agenda e texto da notificação

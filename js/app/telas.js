@@ -9,6 +9,7 @@ import { decryptCards, renderCofre } from "./cofre.js";
 import { cardSheet, layoutNow, renderCard } from "./cartoes.js";
 import { openCamera, openGallery } from "./cupom.js";
 import { driveOn } from "./backup.js";
+import { resumoSync, syncOn } from "./sincronizacao.js";
 import { renderAvisoCredito, renderHome, syncAgenda } from "./inicio.js";
 
 // ---------- ações ----------
@@ -150,6 +151,7 @@ function renderAjustes() {
       <button data-act="m-drive"><span class="t">Backup no Drive</span><span class="s">${driveOn() ? "Ligado: o app guarda uma cópia no seu Google Drive sozinho." : "Guarda uma cópia sozinha no seu Google Drive."}</span></button>
       ${driveOn() ? `<button data-act="drive-save"><span class="t">Salvar no Drive</span><span class="s">${S.meta.drive.ultimo ? "Último: " + new Date(S.meta.drive.ultimo).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) + "." : "Ainda não salvou."}</span></button>
       <button data-act="drive-restore"><span class="t">Restaurar do Drive</span><span class="s">Escolha um backup do Drive para trazer de volta.</span></button>` : ""}
+      <button data-act="m-sync"><span class="t">Sincronizar com a Planilha</span><span class="s">${syncOn() ? "Ligado. " + esc(resumoSync(S.meta.sync)) : "Guarda uma cópia dos lançamentos numa Planilha Google sua."}</span></button>
       <button data-act="m-photos"><span class="t">Fotos dos cupons</span><span class="s">Espaço usado e limpeza de fotos antigas.</span></button>
       <button data-act="m-about"><span class="t">Onde ficam os dados</span><span class="s">Como não perder nada ao trocar de celular.</span></button>
     </div>
