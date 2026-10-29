@@ -65,7 +65,8 @@ export async function aboutSheet() {
   try { persisted = await navigator.storage.persisted(); } catch (e) {}
   openSheet(`
     <h3>Onde ficam seus dados</h3>
-    <p>Tudo fica guardado apenas neste celular, dentro do app. Nada é enviado para a internet, a menos que você ligue por conta própria o backup no Drive (a cópia vai para o seu Google Drive) ou a leitura com o Gemini (as fotos vão para o Google). As senhas do cofre só saem do celular dentro do backup, e criptografadas.</p>
+    <p>Tudo fica guardado apenas neste celular, dentro do app. Nada é enviado para a internet, a menos que você ligue por conta própria o backup no Drive (a cópia vai para o seu Google Drive), a Planilha ou a leitura com o Gemini (as fotos vão para o Google). As senhas do cofre só saem do celular dentro do backup, e criptografadas.</p>
+    <p>Se você ligar a Planilha, os lançamentos, cartões (sem número completo) e as senhas <b>cifradas</b> também ficam na sua Planilha Google. As fotos dos cupons nunca vão para a Planilha.</p>
     <p>Se você desinstalar o app, limpar os dados do Chrome ou trocar de celular, os dados se perdem. Faça backup e guarde o arquivo no Google Drive ou envie para você mesmo.</p>
     <p class="hint">${esc(usage)} ${persisted ? "O Android foi avisado para não apagar estes dados sozinho." : ""}</p>
     <div class="btnrow"><button class="btn primary" id="abBk">Fazer backup agora</button><button class="btn" data-close>Fechar</button></div>`, () => {
